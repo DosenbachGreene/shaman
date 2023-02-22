@@ -21,5 +21,17 @@ classdef NpcScores < handle
             this.scores = Args.scores;
             this.p_values = Args.p_values;
         end
+        function compute_p_values(this, other)
+            arguments
+                this NpcScores
+                other NpcScores
+            end
+            assert(size(this.scores,1) == 1);
+            assert(size(this.scores,3) == size(other.scores,3));
+            this.p_values = zeros(1,1,size(this.scores,3));
+            for i=1:size(this.scores,3)
+                this.p_values(i) = mean(this.scores(1,1,i) < other.scores(:,1,i));
+            end
+        end
     end
 end
