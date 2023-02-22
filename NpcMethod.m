@@ -14,7 +14,7 @@ classdef NpcMethod
 
             % Dispatch to appropriate method.
             switch(npc_method)
-                case Npcmethod.Stouffer
+                case NpcMethod.Stouffer
                     x = NpcMethod.stouffer(u);
             end
         end
@@ -26,10 +26,10 @@ classdef NpcMethod
             
             % Replace u=0 or u=1 with epsilon.
             % Necessary to prevent getting Inf or -Inf for z-values.
-            u(u == 0) = epsilon;
-            u(u == 1) = 1 - epsilon;
+            u(u < epsilon) = epsilon;
+            u(u > 1-epsilon) = 1 - epsilon;
             
-            % Compute 
+            % Compute Stouffer's Z score.
             z = sum(norminv(1 - u)) / sqrt(length(u));
         end
     end
