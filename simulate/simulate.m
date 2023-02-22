@@ -174,7 +174,7 @@ for i = 1:n_subjects
     sub_i = struct;
     sub_i.data = data(:,:,i);
     sub_i.fd = motion(:,i);
-    sub_i.trait = X_t(i,1);
+    sub_i.trait = X_full(i,1);
     save(['sub' num2str(i, '%04d') '.mat'], '-struct', 'sub_i');
 end
 clear sub_i
