@@ -2,12 +2,12 @@ classdef ModelFit
     % Perform regression to fit b-values (regression coefficients) and
     % t-values to a model.
     properties (SetAccess=protected, GetAccess=public)
-        x % list of predictors
+        x_names % list of predictors
         b % predictor x edges (columns) vector of beta values (regression coefficients) for x
         t % predictor x edges (columns) vector of t-values for x
     end
     methods
-        function this = ModelFit(model, x, OptionalArgs)
+        function this = ModelFit(model, x_names, OptionalArgs)
             % Fit parameters to model using x as the main predictor.
             %
             % Example: Fit the model using the column 'foo' from model.tbl
@@ -16,15 +16,15 @@ classdef ModelFit
             %   fit_model = ModelFit(model, 'foo', {'bar'});
             arguments
                 model Model
-                x (1,:) cell {mustBeText,mustBeNonempty} % cell array of names of columns in model.tbl to use as predictor
+                x_names (1,:) string {mustBeNonempty} % array of names of columns in model.tbl to use as predictor
                 OptionalArgs.intercept logical = true % include an intercept term
                 OptionalArgs.motion_covariate logical = true % include motion as a covariate
-                OptionalArgs.covariates (1,:) cell {mustBeText} = {} % cell array of column names in model.tbl to include as covarriates
+                OptionalArgs.covariates (1,:) string = [] % cell array of column names in model.tbl to include as covarriates
                 OptionalArgs.show_progress logical = true % show progres indicator
             end
 
             % Store list of predictors.
-            this.x = x;
+            this.x_names = x_names;
             
             % Closure to make the design matrices.
             function X = make_design_matrix(xi)
@@ -39,31 +39,31 @@ classdef ModelFit
             end
 
             % Allocate memory.
-            this.b = zeros(1, size(model.con,2), length(x));
-            this.t = zeros(1, size(model.con,2), length(x));
+            this.b = zeros(1, size(model.con,2), length(x_names));
+            this.t = zeros(1, size(model.con,2), length(x_names));
 
             % Progress indicator.
             if OptionalArgs.show_progress
                 fprintf('Fitting variable ');
-                line_length = fprintf('1 of %d', length(this.x));
+                line_length = fprintf('1 of %d', length(this.x_names));
             end
 
             % Fit the model for each predictor in x.
-            for i=1:length(x)
+            for i=1:length(this.x_names)
                 % Progress indicator.
                 if OptionalArgs.show_progress
                     fprintf(repmat('\b', 1, line_length));
-                    line_length = fprintf('%d of %d', i, length(this.x));
+                    line_length = fprintf('%d of %d', i, length(this.x_names));
                 end
 
                 % Perform regression.
-                [this.b(1,:,i), this.t(1,:,i)] = ModelFit.regress(make_design_matrix(this.x{i}), model.con);
+                [this.b(1,:,i), this.t(1,:,i)] = ModelFit.regress(make_design_matrix(this.x_names(i)), model.con);
             end
 
             % Progress indicator.
             if OptionalArgs.show_progress
                 fprintf(repmat('\b', 1, line_length + 17))
-                fprintf('Fitted %d variables.\n', length(this.x));
+                fprintf('Fitted %d variables.\n', length(this.x_names));
             end
         end
     end

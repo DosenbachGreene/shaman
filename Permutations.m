@@ -1,10 +1,10 @@
 classdef Permutations < handle
     properties (SetAccess=protected, GetAccess=public)
         data_provider % where data is sourced from
-        x % names of variables used as main predictors
+        x_names (1,:) string % names of variables used as main predictors
         null_model_t % n permutations (rows) x edges (columns) x variables in x (3rd dimension) array of t-values
         intercept % whether the model fit includes an interecept column
-        covariates % cell array of variables included as covariates
+        covariates (1,:) string % array of variables included as covariates
         motion_covariate % whether motion was included as a covariate
     end
     properties
@@ -12,20 +12,20 @@ classdef Permutations < handle
         show_progress % whether to show a progress indicator
     end
     methods
-        function this = Permutations(data_provider, x, OptionalArgs)
+        function this = Permutations(data_provider, x_names, OptionalArgs)
             arguments
                 data_provider DataProvider
-                x (1,:) cell {mustBeText,mustBeNonempty} % names of variables to use as main predictors
+                x_names (1,:) string {mustBeNonempty} % names of variables to use as main predictors
                 OptionalArgs.nperm {mustBeNonnegative, mustBeInteger} = 0
                 OptionalArgs.intercept logical = true % include an intercept term
                 OptionalArgs.motion_covariate logical = true % include motion as a covariate
-                OptionalArgs.covariates (1,:) cell {mustBeText} = {} % cell array of variable names to include as covarriates
+                OptionalArgs.covariates (1,:) string = [] % cell array of variable names to include as covarriates
                 OptionalArgs.show_progress logical = true % display progress
             end
 
             % Store arguments.
             this.data_provider = data_provider;
-            this.x = x;
+            this.x_names = x_names;
             this.intercept = OptionalArgs.intercept;
             this.motion_covariate = OptionalArgs.motion_covariate;
             this.covariates = OptionalArgs.covariates;
@@ -44,11 +44,11 @@ classdef Permutations < handle
             nedges = (nedges * nedges - nedges) / 2;
 
             % Initialize the matrix of permuted t-values.
-            this.null_model_t = zeros(0, nedges, length(this.x));
+            this.null_model_t = zeros(0, nedges, length(this.x_names));
 
             % Perform permutations.
             if OptionalArgs.nperm > 0
-                this.nperm = OptionalArgs.N;
+                this.nperm = OptionalArgs.nperm;
             end
         end
         function set.nperm(this, nperm)
@@ -63,12 +63,12 @@ classdef Permutations < handle
             % Allocate matrix of t-values.
             % Note that we cannot reallocate the existing matrix due to the
             % way Matlab handles memory in parfor loops.
-            t = zeros(nperm-this.nperm, size(this.null_model_t, 2), length(this.x));
+            t = zeros(nperm-this.nperm, size(this.null_model_t, 2), length(this.x_names));
 
             % Cache some variables on the function stack to make parfor
             % happier.
             data_provider = this.data_provider;
-            x = this.x;
+            x = this.x_names;
             intercept = this.intercept;
             motion_covariate = this.motion_covariate;
             covariates = this.covariates;

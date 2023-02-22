@@ -1,7 +1,7 @@
 classdef Shaman < handle
     properties (SetAccess=protected, GetAccess=public)
         data_provider % where data is sourced from
-        x % names of variables used as main predictors
+        x_names (1,:) string % names of variables used as main predictors
         split_model_fit % struct array of observed regression coefficients and t-values for the observed (not permuted) data, one element for each variable in x
         full_model_fit
         permutations % n permutations (rows) x edges (columns) x variables in x (3rd dimension) array of t-values
@@ -15,20 +15,20 @@ classdef Shaman < handle
         show_progress % whether to show a progress indicator
     end
     methods
-        function this = Shaman(data_provider, x, OptionalArgs)
+        function this = Shaman(data_provider, x_names, OptionalArgs)
             arguments
                 data_provider DataProvider
-                x (1,:) cell {mustBeText,mustBeNonempty} % names of variables to use as main predictors
+                x_names (1,:) string {mustBeNonempty} % names of variables to use as main predictors
                 OptionalArgs.nperm uint16 = 0
                 OptionalArgs.intercept logical = true % include an intercept term
                 OptionalArgs.motion_covariate logical = true % include motion as a covariate
-                OptionalArgs.covariates (1,:) cell = {} % cell array of variable names to include as covarriates
+                OptionalArgs.covariates (1,:) string = [] % cell array of variable names to include as covarriates
                 OptionalArgs.show_progress logical = true % display progress
             end
 
             % Store arguments.
             this.data_provider = data_provider;
-            this.x = x;
+            this.x_names = x_names;
             this.intercept = OptionalArgs.intercept;
             this.motion_covariate = OptionalArgs.motion_covariate;
             this.covariates = OptionalArgs.covariates;
@@ -42,7 +42,7 @@ classdef Shaman < handle
             if this.show_progress
                 fprintf('Fitting variables to full model: ');
             end
-            this.full_model_fit = FullModelFit(model, this.x, "intercept", this.intercept, "motion_covariate", this.motion_covariate, "covariates", this.covariates, "show_progress", this.show_progress);
+            this.full_model_fit = FullModelFit(model, this.x_names, "intercept", this.intercept, "motion_covariate", this.motion_covariate, "covariates", this.covariates, "show_progress", this.show_progress);
 
             % Fit the observed (not permuted) split model.
             if this.show_progress
@@ -52,11 +52,11 @@ classdef Shaman < handle
             if this.show_progress
                 fprintf('Fitting variables to split model: ');
             end
-            this.split_model_fit = SplitModelFit(model, this.x, "intercept", this.intercept, "motion_covariate", this.motion_covariate, "covariates", this.covariates, "show_progress", this.show_progress);
+            this.split_model_fit = SplitModelFit(model, this.x_names, "intercept", this.intercept, "motion_covariate", this.motion_covariate, "covariates", this.covariates, "show_progress", this.show_progress);
             clear model;
 
             % Initialize permutation test.
-            this.permutations = Permutations(this.data_provider, this.x, 'covariates', this.covariates, 'intercept', this.intercept, 'motion_covariate', this.motion_covariate, 'show_progress', this.show_progress);
+            this.permutations = Permutations(this.data_provider, this.x_names, 'covariates', this.covariates, 'intercept', this.intercept, 'motion_covariate', this.motion_covariate, 'show_progress', this.show_progress);
 
             % Perform permutations.
             if OptionalArgs.nperm > 0
@@ -95,9 +95,9 @@ classdef Shaman < handle
             end
 
             % Package result as a UValues object.
-            u0 = UValues("u", u0, "score_type", OptionalArgs.score_type);
+            u0 = UValues("u", u0, "score_type", OptionalArgs.score_type, "x_names", this.x_names(xidx));
             if nargout == 2
-                u = UValues("u", u, "score_type", OptionalArgs.score_type);
+                u = UValues("u", u, "score_type", OptionalArgs.score_type, "x_names", this.x_names(xidx));
             end
         end
         function [npc0, npc] = get_npc_scores(this, OptionalArgs)
@@ -148,14 +148,15 @@ classdef Shaman < handle
                 npc0.compute_p_values(npc);
             end
         end
-        function get_motion_impact_score(this, OptionalArgs)
+        function get_scores_as_table(this, OptionalArgs)
             arguments
                 this Shaman
                 OptionalArgs.x = []
-                OptionalArgs.score_type (1,:) cell {mustBeScoreType}
+                OptionalArgs.score_type ScoreType = ScoreType.getDefaultValue()
+                OptionalArgs.npc_method NpcMethod = NpcMethod.getDefaultValue()
                 OptionalArgs.t_thresh {mustBeNumeric,mustBeScalar,mustBeNonnegative} = 2
-                OptionalArgs.nodes {mustBeVector,mustBeInteger,mustBePositive} = []
-                OptionalArgs.edges {mustBeVector,mustBeInteger,mustBePositive} = []
+                OptionalArgs.nodes {mustBeVectorOrEmpty,mustBeInteger,mustBePositive} = []
+                OptionalArgs.edges {mustBeVectorOrEmpty,mustBeInteger,mustBePositive} = []
             end
 
             % Validate x argument and convert to indices in this.x.
@@ -222,31 +223,31 @@ classdef Shaman < handle
             end
             
             % Package into NpcScores objects.
-            npc = NpcScores("scores", npc, "score_type", u.score_type, "t_thresh", u.t_thresh, "npc_method", OptionalArgs.npc_method);
+            npc = NpcScores("scores", npc, "score_type", u.score_type, "t_thresh", u.t_thresh, "npc_method", OptionalArgs.npc_method, "x_names", u.x_names);
         end
     end
     methods (Access = private)
         function xidx = xtoidx(this, x)
             if iscell(x)
-                % Find indicdes in this.x that match variable names in x.
-                xidx = find(cellfun(@(a) any(cellfun(@(b) a == b || strcmp(a, b), x)), this.x));
+                % Find indicdes in this.x_names that match variable names in x.
+                xidx = find(cellfun(@(a) any(cellfun(@(b) a == b || strcmp(a, b), x)), this.x_names));
                 assert(length(xidx) == length(x), "Couldn't find all of x in Shaman.x");
             elseif isvector(x)
                 if isstring(x)
-                    % Find indicdes in this.x that match variable names in x.
-                    xidx = arrayfun(@(x) find(this.x == x), x);
+                    % Find indicdes in this.x_names that match variable names in x.
+                    xidx = arrayfun(@(x) find(this.x_names == x), x);
                     assert(length(xidx) == length(x), "Couldn't find all of x in Shaman.x");
                 else
-                    % Make sure x are valid indices in this.x.
+                    % Make sure x are valid indices in this.x_names.
                     mustBePositive(x);
                     mustBeInteger(x);
-                    assert(max(x) <= length(this.x));
+                    assert(max(x) <= length(this.x_names));
                     xidx = x;
                 end
             elseif isempty(x)
                 % If no x is provided, default to doing every variable in
-                % this.x
-                xidx = 1:length(this.x);
+                % this.x_names
+                xidx = 1:length(this.x_names);
             else
                 error("x does not index the values of Shaman.x");
             end
