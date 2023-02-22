@@ -79,17 +79,17 @@ classdef Shaman < handle
             xidx = this.xtoidx(OptionalArgs.x);
 
             % Preallocate memory for u-values.
-            u0 = zeros(length(xidx), size(this.split_model_fit.t,2));
+            u0 = zeros(1, size(this.split_model_fit.t,2), length(xidx));
             if nargout == 2
                 u = zeros(this.permutations.nperm, size(this.split_model_fit.t,2), length(xidx));
             end
 
             % Iterate over each variable in x and compute u-values.
             for i=1:length(xidx)
-                u0(i,:) = Shaman.get_u_values_(this.split_model_fit.t(xidx(i),:), this.permutations.null_model_t(:,:,xidx(i)), "full_model_t", this.full_model_fit.t(xidx(i),:), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
+                u0(1,:,i) = Shaman.compute_u_values(this.split_model_fit.t(xidx(i),:), this.permutations.null_model_t(:,:,xidx(i)), "full_model_t", this.full_model_fit.t(xidx(i),:), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
                 if nargout == 2
                     for j=1:this.permutations.nperm
-                        u(j,:,i) = Shaman.get_u_values_(this.permutations.null_model_t(j,:,xidx(i)), this.permutations.null_model_t(:,:,xidx(i)), "full_model_t", this.full_model_fit.t(xidx(i),:), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
+                        u(j,:,i) = Shaman.compute_u_values(this.permutations.null_model_t(j,:,xidx(i)), this.permutations.null_model_t(:,:,xidx(i)), "full_model_t", this.full_model_fit.t(xidx(i),:), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
                     end
                 end
             end
@@ -117,43 +117,36 @@ classdef Shaman < handle
             % Validate nodes/edges arguments and convert to edges.
             edges = this.to_edges(OptionalArgs.nodes, OptionalArgs.edges);
 
-            % Preallocate memory for u-values.
-            npc0 = zeros(length(xidx), 1);
+            % Preallocate memory for non-parametric combined scores.
+            npc0 = zeros(1, 1, length(xidx));
             if nargout == 2
-                npc = zeros(this.permutations.nperm, size(this.split_model_fit.t,2), length(xidx));
+                npc = zeros(this.permutations.nperm, 1, length(xidx));
             end
 
-            % Iterate over each variable in x and compute u-values.
-            for i=1:length(xidx)
-                u0(i,:) = Shaman.get_u_values_(this.split_model_fit.t(xidx(i),:), this.permutations.null_model_t(:,:,xidx(i)), "full_model_t", this.full_model_fit.t(xidx(i),:), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
-                if nargout == 2
-                    for j=1:this.permutations.nperm
-                        u(j,:,i) = Shaman.get_u_values_(this.permutations.null_model_t(j,:,xidx(i)), this.permutations.null_model_t(:,:,xidx(i)), "full_model_t", this.full_model_fit.t(xidx(i),:), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
-                    end
-                end
-            end
-
-            % Compute u-values.
+            % Get u-values.
             if nargout == 1
-                u0 = this.get_u_values("score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh);
+                u0 = this.get_u_values("x", xidx, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh);
+            elseif nargout == 2
+                [u0, u] = this.get_u_values("x", xidx, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh);
             else
-                [u0, u] = this.get_u_values("score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh);
+                error("Incorrect number of output arguments.")
             end
 
-            % Perform non-parametric combining on a subset of nodes.
-            npc0 = NpcMethod.npc(u0(edges), npc_method);
-            p_value = [];
+            % Pare down to just the edges we need.
+            u0.u = u0.u(edges);
             if nargout > 1
-                npc = zeros(1,this.permutations.nperm);
-                for i=1:this.permutations.nperm
-                    npc(i) = NpcMethod.npc(u(i,edges), npc_method);
-                end
-                p_value = sum(npc > npc0) / this.permutations.nperm;
+                u.u = u.u(:,edges);
             end
+
+            % Convert u-values to npc scores.
+            npc0 = Shaman.compute_npc_scores(u0, "npc_method", OptionalArgs.npc_method);
+
+            if nargout > 1
+                npc = Shaman.compute_npc_scores(u, "npc_method", OptionalArgs.npc_method);
             
-            % Package into NpcScores objects.
-            npc0 = NpcScores("scores", npc0, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "npc_method", OptionalArgs.npc_method, "p_values", p_value);
-            npc = NpcScores("scores", npc, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "npc_method", OptionalArgs.npc_method);
+                % Compute p-values.
+                npc0.compute_p_values(npc);
+            end
         end
         function get_motion_impact_score(this, OptionalArgs)
             arguments
@@ -178,7 +171,7 @@ classdef Shaman < handle
         end
     end
     methods (Static)
-        function u = get_u_values_(t0, tperm, OptionalArgs)
+        function u = compute_u_values(t0, tperm, OptionalArgs)
             arguments
                 t0 {mustBeNumeric,mustBeVector}
                 tperm {mustBeNumeric,ismatrix}
@@ -203,15 +196,33 @@ classdef Shaman < handle
 
             % Then compute one-sided u-values for edges above the t-value
             % threshold.
-            ft = OptionalArgs.full_model_t;
-            thresh = OptionalArgs.t_thresh;
             if OptionalArgs.score_type ~= ScoreType.TwoSided
+                ft = OptionalArgs.full_model_t;
+                thresh = OptionalArgs.t_thresh;
                 u(ft < -thresh) = sum(tperm(:, ft < -thresh) < t0(ft < -thresh)) ./ size(tperm,1);
                 u(ft > thresh) = sum(tperm(:, ft > thresh) > t0(ft > thresh)) ./ size(tperm,1);
             end
 
             % Package result as a UValues object.
             u = UValues("u", u, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh);
+        end
+        function npc = compute_npc_scores(u, OptionalArgs)
+            arguments
+                u UValues
+                OptionalArgs.npc_method NpcMethod = NpcMethod.getDefaultValue()
+            end
+            
+            % Perform non-parametric combining of u-values on the specified
+            % edges using the specified method.
+            npc = zeros(size(u.u,1), 1, size(u.u,3));
+            for i=1:size(u.u,3)
+                for j=1:size(u.u,1)
+                    npc(j,1,i) = NpcMethod.npc(u.u(j,:,i), OptionalArgs.npc_method);
+                end
+            end
+            
+            % Package into NpcScores objects.
+            npc = NpcScores("scores", npc, "score_type", u.score_type, "t_thresh", u.t_thresh, "npc_method", OptionalArgs.npc_method);
         end
     end
     methods (Access = private)
