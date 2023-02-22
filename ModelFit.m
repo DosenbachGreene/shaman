@@ -39,8 +39,8 @@ classdef ModelFit
             end
 
             % Allocate memory.
-            this.b = zeros(length(x), size(model.con,2));
-            this.t = zeros(length(x), size(model.con,2));
+            this.b = zeros(1, size(model.con,2), length(x));
+            this.t = zeros(1, size(model.con,2), length(x));
 
             % Progress indicator.
             if OptionalArgs.show_progress
@@ -57,7 +57,7 @@ classdef ModelFit
                 end
 
                 % Perform regression.
-                [this.b(i,:), this.t(i,:)] = ModelFit.regress(make_design_matrix(this.x{i}), model.con);
+                [this.b(1,:,i), this.t(1,:,i)] = ModelFit.regress(make_design_matrix(this.x{i}), model.con);
             end
 
             % Progress indicator.
@@ -72,10 +72,10 @@ classdef ModelFit
             xpinv = pinv(x); % Moore-Penrose pseudoinverse
             b = xpinv * y; % beta coefficients
             mse = y - x*b; % residuals
+            mse = sum(mse.*mse) ./ (size(x,1) - size(x,2) - 1); % mean squared error
             b = b(1,:); % we only need to beta values for the first column in b predictor
-            mse = sum(mse.*mse) / (size(x,1) - size(x,2) - 1); % mean squared error
             se = sum(xpinv .* xpinv, 2); % equivalent to se = diag(xpinv*xpinv'), gets variance associated with predictors
-            se = sqrt(se(1) ./ mse); % standard error for the first predictor/column in x
+            se = sqrt(se(1) .* mse); % standard error for the first predictor/column in x
             clear mse xpinv
             t = b ./ se; % t-values for the main predictor
         end
