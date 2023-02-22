@@ -72,7 +72,7 @@ classdef Shaman < handle
                 this Shaman
                 OptionalArgs.x = []
                 OptionalArgs.score_type ScoreType = ScoreType.getDefaultValue()
-                OptionalArgs.t_thresh {mustBeNumeric,mustBeScalar} = 2
+                OptionalArgs.t_thresh {mustBeNumeric,mustBeScalar,mustBeNonnegative} = 2
             end
 
             % Validate x argument and convert to indices in this.x.
@@ -106,9 +106,9 @@ classdef Shaman < handle
                 OptionalArgs.x = []
                 OptionalArgs.score_type ScoreType = ScoreType.getDefaultValue()
                 OptionalArgs.npc_method NpcMethod = NpcMethod.getDefaultValue()
-                OptionalArgs.t_thresh {mustBeNumeric,mustBeScalar} = 2
-                OptionalArgs.nodes {mustBeVector,mustBeInteger,mustBePositive} = []
-                OptionalArgs.edges {mustBeVector,mustBeInteger,mustBePositive} = []
+                OptionalArgs.t_thresh {mustBeNumeric,mustBeScalar,mustBeNonnegative} = 2
+                OptionalArgs.nodes {mustBeVectorOrEmpty,mustBeInteger,mustBePositive} = []
+                OptionalArgs.edges {mustBeVectorOrEmpty,mustBeInteger,mustBePositive} = []
             end
 
             % Validate x argument and convert to indices in this.x.
@@ -160,7 +160,7 @@ classdef Shaman < handle
                 this Shaman
                 OptionalArgs.x = []
                 OptionalArgs.score_type (1,:) cell {mustBeScoreType}
-                OptionalArgs.t_thresh {mustBeNumeric,mustBeScalar} = 2
+                OptionalArgs.t_thresh {mustBeNumeric,mustBeScalar,mustBeNonnegative} = 2
                 OptionalArgs.nodes {mustBeVector,mustBeInteger,mustBePositive} = []
                 OptionalArgs.edges {mustBeVector,mustBeInteger,mustBePositive} = []
             end
@@ -184,7 +184,7 @@ classdef Shaman < handle
                 tperm {mustBeNumeric,ismatrix}
                 OptionalArgs.full_model_t {mustBeNumeric,mustBeVectorOrEmpty} = []
                 OptionalArgs.score_type ScoreType = ScoreType.getDefaultValue()
-                OptionalArgs.t_thresh {mustBeNumeric,mustBeScalar} = 2
+                OptionalArgs.t_thresh {mustBeNumeric,mustBeScalar,mustBeNonnegative} = 2
             end
 
             % Validate arguments.
@@ -221,7 +221,7 @@ classdef Shaman < handle
                 xidx = find(cellfun(@(a) any(cellfun(@(b) a == b || strcmp(a, b), x)), this.x));
                 assert(length(xidx) == length(x), "Couldn't find all of x in Shaman.x");
             elseif isvector(x)
-                if isstring(foo)
+                if isstring(x)
                     % Find indicdes in this.x that match variable names in x.
                     xidx = arrayfun(@(x) find(this.x == x), x);
                     assert(length(xidx) == length(x), "Couldn't find all of x in Shaman.x");
@@ -240,16 +240,16 @@ classdef Shaman < handle
                 error("x does not index the values of Shaman.x");
             end
         end
-        function edges = toedges(this, nodes, edges)
+        function edges = to_edges(this, nodes, edges)
             arguments
-                this SHaman
-                nodes {mustBeInteger,mustBePositive,mustBeVector}
-                edges {mustBeInteger,mustBePositive,mustBeVector}
+                this Shaman
+                nodes {mustBeInteger,mustBePositive,mustBeVectorOrEmpty}
+                edges {mustBeInteger,mustBePositive,mustBeVectorOrEmpty}
             end
             if isempty(nodes) && isempty(edges)
                 edges = 1:this.n_edges;
             elseif isempty(nodes) && ~isempty(edges)
-                assert(all(edges < this.n_edges));
+                assert(all(edgess <= this.n_edges));
             elseif ~isempty(OptionalArgs.nodes) && isempty(OptionalArgs.edges)
                 edges = nodes_to_edges("total_nodes", this.n_nodes, "nodes", nodes);
             else
