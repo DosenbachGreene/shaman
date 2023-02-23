@@ -86,7 +86,7 @@ classdef Shaman < handle
 
             % Preallocate memory for u-values.
             u0 = zeros(1, length(edges), length(xidx));
-            if nargout == 2
+            if nargout > 1
                 u = zeros(this.permutations.nperm, length(edges), length(xidx));
             end
 
@@ -103,7 +103,7 @@ classdef Shaman < handle
                     line_length2 = fprintf("%d of %d", i, length(xidx));
                 end
                 u0(1,:,i) = Shaman.compute_u_values(this.split_model_fit.t(xidx(i),edges), this.permutations.null_model_t(:,edges,xidx(i)), "full_model_t", this.full_model_fit.t(xidx(i),:), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
-                if nargout == 2
+                if nargout > 1
                     for j=1:this.permutations.nperm
                         u(j,:,i) = Shaman.compute_u_values(this.permutations.null_model_t(j,edges,xidx(i)), this.permutations.null_model_t(:,edges,xidx(i)), "full_model_t", this.full_model_fit.t(xidx(i),:), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
                     end
@@ -112,7 +112,7 @@ classdef Shaman < handle
 
             % Package result as a UValues object.
             u0 = UValues("u", u0, "score_type", OptionalArgs.score_type, "x_names", this.x_names(xidx), "t_thresh", OptionalArgs.t_thresh);
-            if nargout == 2
+            if nargout > 1
                 u = UValues("u", u, "score_type", OptionalArgs.score_type, "x_names", this.x_names(xidx), "t_thresh", OptionalArgs.t_thresh);
             end
 
@@ -140,14 +140,14 @@ classdef Shaman < handle
             edges = this.to_edges(OptionalArgs.nodes, OptionalArgs.edges);
 
             % Get u-values.
-            if nargout == 1
+            if nargout < 2
                 u0 = this.get_u_values("x", xidx, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "edges", edges, "show_progress", OptionalArgs.show_progress);
             else
                 [u0, u] = this.get_u_values("x", xidx, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "edges", edges, "show_progress", OptionalArgs.show_progress);
             end
 
             % Convert u-values to npc scores.
-            if nargout == 1
+            if nargout < 2
                 npc0 = Shaman.compute_npc_scores(u0, "npc_method", OptionalArgs.npc_method, "show_progress", OptionalArgs.show_progress);
             else
                 npc0 = Shaman.compute_npc_scores(u0, "npc_method", OptionalArgs.npc_method, "show_progress", false);
@@ -242,6 +242,7 @@ classdef Shaman < handle
             if OptionalArgs.score_type ~= ScoreType.TwoSided
                 assert(~isempty(OptionalArgs.full_model_t), 'Need t-values from full model to compute false positive or false negative motion impact score.');
             end
+            assert(size(tperm,1) > 1, "Cannot compute u values without running any permutations.");
 
             % If we are computing false negative motion impact score,
             % simply flip the signs on the full model's t-values.
