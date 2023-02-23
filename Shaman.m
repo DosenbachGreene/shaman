@@ -73,6 +73,7 @@ classdef Shaman < handle
                 OptionalArgs.x = []
                 OptionalArgs.score_type ScoreType = ScoreType.getDefaultValue()
                 OptionalArgs.t_thresh {mustBeNumeric,mustBeScalar,mustBeNonnegative} = 2
+                OptionalArgs.show_progress logical = this.show_progress % display progress
             end
 
             % Validate x argument and convert to indices in this.x.
@@ -84,8 +85,18 @@ classdef Shaman < handle
                 u = zeros(this.permutations.nperm, size(this.split_model_fit.t,2), length(xidx));
             end
 
+            % Display progress indicator.
+            if OptionalArgs.show_progress
+                line_length1 = fprintf("Computing %s u-values for variable ", OptionalArgs.score_type.to_string());
+                line_length2 = fprintf("%d of %d", 1, length(xidx));
+            end
+
             % Iterate over each variable in x and compute u-values.
             for i=1:length(xidx)
+                if OptionalArgs.show_progress
+                    fprintf(repmat('\b', 1, line_length2));
+                    line_length2 = fprintf("%d of %d", i, length(xidx));
+                end
                 u0(1,:,i) = Shaman.compute_u_values(this.split_model_fit.t(xidx(i),:), this.permutations.null_model_t(:,:,xidx(i)), "full_model_t", this.full_model_fit.t(xidx(i),:), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
                 if nargout == 2
                     for j=1:this.permutations.nperm
@@ -99,6 +110,11 @@ classdef Shaman < handle
             if nargout == 2
                 u = UValues("u", u, "score_type", OptionalArgs.score_type, "x_names", this.x_names(xidx), "t_thresh", OptionalArgs.t_thresh);
             end
+
+            if OptionalArgs.show_progress
+                fprintf(repmat('\b', 1, line_length1 + line_length2));
+                fprintf("Computed %s u-values for %d variables.\n", u0.score_type.to_string(), length(xidx));
+            end
         end
         function [npc0, npc] = get_npc_scores(this, OptionalArgs)
             arguments
@@ -109,6 +125,7 @@ classdef Shaman < handle
                 OptionalArgs.t_thresh {mustBeNumeric,mustBeScalar,mustBeNonnegative} = 2
                 OptionalArgs.nodes {mustBeVectorOrEmpty,mustBeInteger,mustBePositive} = []
                 OptionalArgs.edges {mustBeVectorOrEmpty,mustBeInteger,mustBePositive} = []
+                OptionalArgs.show_progress = this.show_progress;
             end
 
             % Validate x argument and convert to indices in this.x_names.
@@ -125,11 +142,9 @@ classdef Shaman < handle
 
             % Get u-values.
             if nargout == 1
-                u0 = this.get_u_values("x", xidx, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh);
-            elseif nargout == 2
-                [u0, u] = this.get_u_values("x", xidx, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh);
+                u0 = this.get_u_values("x", xidx, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "show_progress", OptionalArgs.show_progress);
             else
-                error("Incorrect number of output arguments.")
+                [u0, u] = this.get_u_values("x", xidx, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "show_progress", OptionalArgs.show_progress);
             end
 
             % Pare down to just the edges we need.
@@ -139,10 +154,11 @@ classdef Shaman < handle
             end
 
             % Convert u-values to npc scores.
-            npc0 = Shaman.compute_npc_scores(u0, "npc_method", OptionalArgs.npc_method);
-
-            if nargout > 1
-                npc = Shaman.compute_npc_scores(u, "npc_method", OptionalArgs.npc_method);
+            if nargout == 1
+                npc0 = Shaman.compute_npc_scores(u0, "npc_method", OptionalArgs.npc_method, "show_progress", OptionalArgs.show_progress);
+            else
+                npc0 = Shaman.compute_npc_scores(u0, "npc_method", OptionalArgs.npc_method, "show_progress", false);
+                npc = Shaman.compute_npc_scores(u, "npc_method", OptionalArgs.npc_method, "show_progress", OptionalArgs.show_progress);
             
                 % Compute p-values.
                 npc0.compute_p_values(npc);
@@ -158,9 +174,17 @@ classdef Shaman < handle
                 OptionalArgs.t_thresh {mustBeNumeric,mustBeScalar,mustBeNonnegative} = 2
                 OptionalArgs.nodes {mustBeVectorOrEmpty,mustBeInteger,mustBePositive} = []
                 OptionalArgs.edges {mustBeVectorOrEmpty,mustBeInteger,mustBePositive} = []
+                OptionalArgs.show_progress logical = this.show_progress
+                OptionalArgs.compute_p_values logical = true
             end
-            args = namedargs2cell(OptionalArgs);
-            [npc0, ~] = this.get_npc_scores(args{:});
+            compute_p_values = OptionalArgs.compute_p_values;
+            OptionalArgs = rmfield(OptionalArgs, "compute_p_values");
+            OptionalArgs = namedargs2cell(OptionalArgs);
+            if compute_p_values
+                [npc0, ~] = this.get_npc_scores(OptionalArgs{:});
+            else
+                npc0 = this.get_npc_scores(OptionalArgs{:});
+            end
             tbl = npc0.to_table();
         end
         function npc0 = get_scores_by_node(this, OptionalArgs)
@@ -170,10 +194,16 @@ classdef Shaman < handle
                 OptionalArgs.score_type ScoreType = ScoreType.getDefaultValue()
                 OptionalArgs.npc_method NpcMethod = NpcMethod.getDefaultValue()
                 OptionalArgs.t_thresh {mustBeNumeric,mustBeScalar,mustBeNonnegative} = 2
+                OptionalArgs.show_progress logical = this.show_progress
                 OptionalArgs.compute_p_values logical = true
             end
 
             xidx = this.xtoidx(OptionalArgs.x);
+
+            if OptionalArgs.show_progress
+                line_length1 = fprintf("Computing %s motion impact score\nusing %s non-parametric combining\non node ", OptionalArgs.score_type.to_string(), OptionalArgs.npc_method.to_string());
+                line_length2 = fprintf("%d of %d", 1, this.n_nodes);
+            end
 
             % Preallocate memory.
             npc0 = NpcScores("score_type", OptionalArgs.score_type, "npc_method", OptionalArgs.npc_method, "t_thresh", OptionalArgs.t_thresh, "x_names", this.x_names(xidx));
@@ -184,15 +214,24 @@ classdef Shaman < handle
 
             % Compute scores for each node.
             for i=1:this.n_nodes
+                if OptionalArgs.show_progress
+                    fprintf(repmat('\b', 1, line_length2));
+                    line_length2 = fprintf("%d of %d", i, this.n_nodes);
+                end
                 if OptionalArgs.compute_p_values
-                    [npc0i, npci] = this.get_npc_scores("nodes", [i], "x", xidx, "score_type", OptionalArgs.score_type, "npc_method", OptionalArgs.npc_method, "t_thresh", OptionalArgs.t_thresh);
+                    [npc0i, ~] = this.get_npc_scores("nodes", [i], "x", xidx, "score_type", OptionalArgs.score_type, "npc_method", OptionalArgs.npc_method, "t_thresh", OptionalArgs.t_thresh, "show_progress", false);
                 else
-                    npc0i = this.get_npc_scores("nodes", [i], "x", xidx, "score_type", OptionalArgs.score_type, "npc_method", OptionalArgs.npc_method, "t_thresh", OptionalArgs.t_thresh);
+                    npc0i = this.get_npc_scores("nodes", [i], "x", xidx, "score_type", OptionalArgs.score_type, "npc_method", OptionalArgs.npc_method, "t_thresh", OptionalArgs.t_thresh, "show_progress", false);
                 end
                 npc0.scores(1,i,:) = npc0i.scores;
                 if OptionalArgs.compute_p_values
                     npc0.p_values(1,i,:) = npc0i.p_values;
                 end
+            end
+
+            if OptionalArgs.show_progress
+                fprintf(repmat('\b', 1, line_length1 + line_length2));
+                fprintf("Computed %s motion impact score\nusing %s non-parametric combining\non %d nodes.\n", OptionalArgs.score_type.to_string(), OptionalArgs.npc_method.to_string(), this.n_nodes);
             end
         end
     end
@@ -236,12 +275,22 @@ classdef Shaman < handle
             arguments
                 u UValues
                 OptionalArgs.npc_method NpcMethod = NpcMethod.getDefaultValue()
+                OptionalArgs.show_progress logical = true
             end
             
+            if OptionalArgs.show_progress
+                line_length1 = fprintf("Performing %s non-parametric combining on variable ", OptionalArgs.npc_method.to_string());
+                line_length2 = fprintf("%d of %d", 1, size(u.u,3));
+            end
+
             % Perform non-parametric combining of u-values on the specified
             % edges using the specified method.
             npc = zeros(size(u.u,1), 1, size(u.u,3));
             for i=1:size(u.u,3)
+                if OptionalArgs.show_progress
+                    fprintf(repmat('\b', 1, line_length2));
+                    line_length2 = fprintf("%d of %d", i, size(u.u,3));
+                end
                 for j=1:size(u.u,1)
                     npc(j,1,i) = NpcMethod.npc(u.u(j,:,i), OptionalArgs.npc_method);
                 end
@@ -249,6 +298,11 @@ classdef Shaman < handle
             
             % Package into NpcScores objects.
             npc = NpcScores("scores", npc, "score_type", u.score_type, "t_thresh", u.t_thresh, "npc_method", OptionalArgs.npc_method, "x_names", u.x_names);
+
+            if OptionalArgs.show_progress
+                fprintf(repmat('\b', 1, line_length1 + line_length2));
+                fprintf("Performed %s non-parametric combining on %d variables.\n", OptionalArgs.npc_method.to_string(), size(u.u,3));
+            end
         end
     end
     methods (Access = private)
