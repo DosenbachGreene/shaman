@@ -111,7 +111,7 @@ classdef Shaman < handle
                 OptionalArgs.edges {mustBeVectorOrEmpty,mustBeInteger,mustBePositive} = []
             end
 
-            % Validate x argument and convert to indices in this.x.
+            % Validate x argument and convert to indices in this.x_names.
             xidx = this.xtoidx(OptionalArgs.x);
 
             % Validate nodes/edges arguments and convert to edges.
@@ -163,8 +163,37 @@ classdef Shaman < handle
             [npc0, ~] = this.get_npc_scores(args{:});
             tbl = npc0.to_table();
         end
-        function get_scores_by_node(this)
-            error("Not Implemented.");
+        function npc0 = get_scores_by_node(this, OptionalArgs)
+            arguments
+                this Shaman
+                OptionalArgs.x = []
+                OptionalArgs.score_type ScoreType = ScoreType.getDefaultValue()
+                OptionalArgs.npc_method NpcMethod = NpcMethod.getDefaultValue()
+                OptionalArgs.t_thresh {mustBeNumeric,mustBeScalar,mustBeNonnegative} = 2
+                OptionalArgs.compute_p_values logical = true
+            end
+
+            xidx = this.xtoidx(OptionalArgs.x);
+
+            % Preallocate memory.
+            npc0 = NpcScores("score_type", OptionalArgs.score_type, "npc_method", OptionalArgs.npc_method, "t_thresh", OptionalArgs.t_thresh, "x_names", this.x_names(xidx));
+            npc0.scores = zeros(1, this.n_nodes, length(xidx));
+            if OptionalArgs.compute_p_values
+                npc0.p_values = zeros(1, this.n_nodes, length(xidx));
+            end
+
+            % Compute scores for each node.
+            for i=1:this.n_nodes
+                if OptionalArgs.compute_p_values
+                    [npc0i, npci] = this.get_npc_scores("nodes", [i], "x", xidx, "score_type", OptionalArgs.score_type, "npc_method", OptionalArgs.npc_method, "t_thresh", OptionalArgs.t_thresh);
+                else
+                    npc0i = this.get_npc_scores("nodes", [i], "x", xidx, "score_type", OptionalArgs.score_type, "npc_method", OptionalArgs.npc_method, "t_thresh", OptionalArgs.t_thresh);
+                end
+                npc0.scores(1,i,:) = npc0i.scores;
+                if OptionalArgs.compute_p_values
+                    npc0.p_values(1,i,:) = npc0i.p_values;
+                end
+            end
         end
     end
     methods (Static)
@@ -258,7 +287,7 @@ classdef Shaman < handle
                 edges = 1:this.n_edges;
             elseif isempty(nodes) && ~isempty(edges)
                 assert(all(edgess <= this.n_edges));
-            elseif ~isempty(OptionalArgs.nodes) && isempty(OptionalArgs.edges)
+            elseif ~isempty(nodes) && isempty(edges)
                 edges = nodes_to_edges("total_nodes", this.n_nodes, "nodes", nodes);
             else
                 error("Cannot specify a subset of nodes and a subset of edges at the same time.");
