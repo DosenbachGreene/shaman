@@ -73,16 +73,21 @@ classdef Shaman < handle
                 OptionalArgs.x = []
                 OptionalArgs.score_type ScoreType = ScoreType.getDefaultValue()
                 OptionalArgs.t_thresh {mustBeNumeric,mustBeScalar,mustBeNonnegative} = 2
+                OptionalArgs.nodes {mustBeVectorOrEmpty,mustBeInteger,mustBePositive} = []
+                OptionalArgs.edges {mustBeVectorOrEmpty,mustBeInteger,mustBePositive} = []
                 OptionalArgs.show_progress logical = this.show_progress % display progress
             end
 
             % Validate x argument and convert to indices in this.x.
             xidx = this.xtoidx(OptionalArgs.x);
 
+            % Validate nodes/edges arguments and convert to edges.
+            edges = this.to_edges(OptionalArgs.nodes, OptionalArgs.edges);
+
             % Preallocate memory for u-values.
-            u0 = zeros(1, size(this.split_model_fit.t,2), length(xidx));
+            u0 = zeros(1, length(edges), length(xidx));
             if nargout == 2
-                u = zeros(this.permutations.nperm, size(this.split_model_fit.t,2), length(xidx));
+                u = zeros(this.permutations.nperm, length(edges), length(xidx));
             end
 
             % Display progress indicator.
@@ -97,10 +102,10 @@ classdef Shaman < handle
                     fprintf(repmat('\b', 1, line_length2));
                     line_length2 = fprintf("%d of %d", i, length(xidx));
                 end
-                u0(1,:,i) = Shaman.compute_u_values(this.split_model_fit.t(xidx(i),:), this.permutations.null_model_t(:,:,xidx(i)), "full_model_t", this.full_model_fit.t(xidx(i),:), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
+                u0(1,:,i) = Shaman.compute_u_values(this.split_model_fit.t(xidx(i),edges), this.permutations.null_model_t(:,edges,xidx(i)), "full_model_t", this.full_model_fit.t(xidx(i),:), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
                 if nargout == 2
                     for j=1:this.permutations.nperm
-                        u(j,:,i) = Shaman.compute_u_values(this.permutations.null_model_t(j,:,xidx(i)), this.permutations.null_model_t(:,:,xidx(i)), "full_model_t", this.full_model_fit.t(xidx(i),:), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
+                        u(j,:,i) = Shaman.compute_u_values(this.permutations.null_model_t(j,edges,xidx(i)), this.permutations.null_model_t(:,edges,xidx(i)), "full_model_t", this.full_model_fit.t(xidx(i),:), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
                     end
                 end
             end
@@ -134,23 +139,11 @@ classdef Shaman < handle
             % Validate nodes/edges arguments and convert to edges.
             edges = this.to_edges(OptionalArgs.nodes, OptionalArgs.edges);
 
-            % Preallocate memory for non-parametric combined scores.
-            npc0 = zeros(1, 1, length(xidx));
-            if nargout == 2
-                npc = zeros(this.permutations.nperm, 1, length(xidx));
-            end
-
             % Get u-values.
             if nargout == 1
-                u0 = this.get_u_values("x", xidx, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "show_progress", OptionalArgs.show_progress);
+                u0 = this.get_u_values("x", xidx, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "edges", edges, "show_progress", OptionalArgs.show_progress);
             else
-                [u0, u] = this.get_u_values("x", xidx, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "show_progress", OptionalArgs.show_progress);
-            end
-
-            % Pare down to just the edges we need.
-            u0.u = u0.u(edges);
-            if nargout > 1
-                u.u = u.u(:,edges);
+                [u0, u] = this.get_u_values("x", xidx, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "edges", edges, "show_progress", OptionalArgs.show_progress);
             end
 
             % Convert u-values to npc scores.
@@ -340,7 +333,7 @@ classdef Shaman < handle
             if isempty(nodes) && isempty(edges)
                 edges = 1:this.n_edges;
             elseif isempty(nodes) && ~isempty(edges)
-                assert(all(edgess <= this.n_edges));
+                assert(all(edges <= this.n_edges));
             elseif ~isempty(nodes) && isempty(edges)
                 edges = nodes_to_edges("total_nodes", this.n_nodes, "nodes", nodes);
             else
