@@ -95,9 +95,9 @@ classdef Shaman < handle
             end
 
             % Package result as a UValues object.
-            u0 = UValues("u", u0, "score_type", OptionalArgs.score_type, "x_names", this.x_names(xidx));
+            u0 = UValues("u", u0, "score_type", OptionalArgs.score_type, "x_names", this.x_names(xidx), "t_thresh", OptionalArgs.t_thresh);
             if nargout == 2
-                u = UValues("u", u, "score_type", OptionalArgs.score_type, "x_names", this.x_names(xidx));
+                u = UValues("u", u, "score_type", OptionalArgs.score_type, "x_names", this.x_names(xidx), "t_thresh", OptionalArgs.t_thresh);
             end
         end
         function [npc0, npc] = get_npc_scores(this, OptionalArgs)
@@ -148,7 +148,8 @@ classdef Shaman < handle
                 npc0.compute_p_values(npc);
             end
         end
-        function get_scores_as_table(this, OptionalArgs)
+        function tbl = get_scores_as_table(this, OptionalArgs)
+            % Convenience method, takes same arguments as get_npc_scores()
             arguments
                 this Shaman
                 OptionalArgs.x = []
@@ -158,16 +159,11 @@ classdef Shaman < handle
                 OptionalArgs.nodes {mustBeVectorOrEmpty,mustBeInteger,mustBePositive} = []
                 OptionalArgs.edges {mustBeVectorOrEmpty,mustBeInteger,mustBePositive} = []
             end
-
-            % Validate x argument and convert to indices in this.x.
-            xidx = this.xtoidx(OptionalArgs.x);
-
-            % We can work on a subset of nodes or edges, but not both.
-            assert(and(isempty(OptionalArgs.nodes), isempty(OptionalArgs.nodes)) || xor(~isempty(OptionalArgs.nodes), ~isempty(OptionalArgs.nodes)), "Cannot specify a subset of nodes and a subset of edges at the same time.");
-
-            error('Not implemented.');
+            args = namedargs2cell(OptionalArgs);
+            [npc0, ~] = this.get_npc_scores(args{:});
+            tbl = npc0.to_table();
         end
-        function get_motion_impact_score_by_node(this)
+        function get_scores_by_node(this)
             error("Not Implemented.");
         end
     end

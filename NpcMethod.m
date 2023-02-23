@@ -2,6 +2,16 @@ classdef NpcMethod
     enumeration
         Stouffer
     end
+    methods
+        function str = to_string(this)
+            switch(this)
+                case "Stouffer"
+                    str = "Stouffer's Z";
+                otherwise
+                    error("Unknown ScoreType")
+            end
+        end
+    end
     methods (Static)
         function obj = getDefaultValue()
            obj = NpcMethod.Stouffer;

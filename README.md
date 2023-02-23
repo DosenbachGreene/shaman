@@ -32,8 +32,23 @@ Compute motion impact score for the simulated fMRI data and trait.
 % Point to the folder containing the simulated data.
 data_provider = SimulatedDataProvider('simulate');
 % Feed the data into the SHAMAN algorithm.
-% Specify names of traits to analyze in a cell array.
-shaman = Shaman(data_provider, {'trait'});
+% Specify names of traits to analyze.
+shaman = Shaman(data_provider, ["trait"]);
+% Run a few quick permutations.
+shaman.permutations.nperm = 32;
+% Get a table of motion impact scores.
+tbl = shaman.get_scores_as_table("score_type", ScoreType.FalsePositive)
+```
+
+```
+tbl =
+
+  1×2 table
+
+             False Positive Score    False Positive p Value
+             ____________________    ______________________
+
+    trait           103.33                     0 
 ```
 
 ## How it Works
