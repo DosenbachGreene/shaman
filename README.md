@@ -30,7 +30,7 @@ Compute motion impact score for the simulated fMRI data and trait.
 ```matlab
 % Construct a DataProvider object.
 % Point to the folder containing the simulated data.
-data_provider = SimulatedDataProvider('simulate');
+data_provider = SimulatedDataProvider("simulate");
 % Feed the data into the SHAMAN algorithm.
 % Specify names of traits to analyze.
 shaman = Shaman(data_provider, ["trait"]);

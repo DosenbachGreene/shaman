@@ -21,8 +21,8 @@ classdef SimulatedDataProvider < DataProvider
         
             % Search for simulated participant data files in the given
             % directory.
-            this.dir = dir;
-            listing = feval('dir', [this.dir '/sub*.mat']);
+            this.dir = string(dir);
+            listing = feval("dir", this.dir + "/sub*.mat");
             
             % Strip the integer 1234 from each file name sub1234.mat and
             % treat this as the participant id.
@@ -40,7 +40,7 @@ classdef SimulatedDataProvider < DataProvider
             assert(index <= this.n_participants);
             
             % Load data file for the simulated participant.
-            data_ = load([this.dir '/sub' num2str(index, '%0.4u') '.mat']);
+            data_ = load(this.dir + "/sub" + num2str(index, "%0.4u") + ".mat");
             
             % Populate a Data structure.
             data = Data;
@@ -54,7 +54,7 @@ classdef SimulatedDataProvider < DataProvider
             if this.n_voxels == 0
                 this.n_voxels = size(data.fmri, 2);
             else
-                assert(this.n_voxels == size(data.fmri, 2), 'Data have inconsistent number of voxels.');
+                assert(this.n_voxels == size(data.fmri, 2), "Data have inconsistent number of voxels.");
             end
         end
        
