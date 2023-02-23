@@ -92,7 +92,7 @@ classdef SimulatedDataProvider < DataProvider
             n_participants = this.n_participants;
         end
         function n_voxels = size_voxels(this)
-            % See documentation for DataProvider::size_hint_voxels()
+            % See documentation for DataProvider::size_voxels()
             n_voxels = this.n_voxels;
         end
     end

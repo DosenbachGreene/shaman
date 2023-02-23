@@ -1,18 +1,16 @@
 classdef (Abstract) DataProvider < handle
     % Matlab class to provide neuroimaging data and associated metadata
-    % such as motion/framewise displacement and traits/phenotypes. You must
-    % implement this class to feed your data into SHAMAN. See
-    % SimulatedDataProvider for a reference implementation.
+    % such as motion/framewise displacement and non-imaging variables (e.g.
+    % behavioral data). You must implement this class to feed your data
+    % into Shaman. See SimulatedDataProvider for a reference
+    % implementation.
     %
     % The DataProvider functions much like an iterator over study
     % participants. Participant's data is produced one-at-a-time, which
-    % helps to economize memory use. Data can be obtained sequentially in
-    % an arbitrary order using nextData(), which allows the underlying
-    % implementation to use asynchronous IO operations. Data can also be
-    % retrieved for a specific participant with dataAt().
-    properties (Abstract, SetAccess=protected, GetAccess=public)
-        n_participants % number of participants
-    end
+    % helps to economize memory use. Data can be obtained in an arbitrary
+    % order using nextData(), which allows the underlying implementation to
+    % use asynchronous IO operations. Data can also be retrieved for a
+    % specific participant with dataAt().
     methods (Abstract)
         % Return the data for the participant identified by index.
         % Index can be 1 through n_participants.
