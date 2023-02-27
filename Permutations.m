@@ -8,8 +8,8 @@ classdef Permutations < handle
         motion_covariate logical = true % Whether to include motion as a covaraite. Default: true
     end
     properties
-        nperm = 0 % number of permutations
-        show_progress % whether to show a progress indicator
+        nperm {mustBeInteger,mustBeNonnegative} = 0 % Number of permutations. Defaults to 0. Setting this property to a number X times larger than its initial value Y will keep the first Y permutations and run X-Y additional permutations. If X < Y it will generate an error.
+        show_progress logical = true % Whether to show a progress indicator. Default: true
     end
     methods
         function this = Permutations(data_provider, x_names, OptionalArgs)
