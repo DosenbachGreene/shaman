@@ -2,9 +2,12 @@ classdef ModelFit
     % Perform regression to fit b-values (regression coefficients) and
     % t-values to a model.
     properties (SetAccess=protected, GetAccess=public)
-        x_names % list of predictors
-        b % predictor x edges (columns) vector of beta values (regression coefficients) for x
-        t % predictor x edges (columns) vector of t-values for x
+        x_names string {mustBeVector,mustBeNonempty} = [0] % names of predictors, in the same order as the 3rd dimension of b and t
+        b {mustBeNumeric} % 1 (row) x edges (columns) x predictors matrix of beta values
+        t {mustBeNumeric} % 1 (row) x edges (columns) x predictors matrix t-values
+        covariates string {mustBeVectorOrEmpty} = [] % names of covariates
+        intercept logical = true % whether the model includes an intercept column
+        motion_covariate logical = true % whether the model includes motion as a covariate
     end
     methods
         function this = ModelFit(model, x_names, OptionalArgs)
@@ -19,12 +22,15 @@ classdef ModelFit
                 x_names (1,:) string {mustBeNonempty} % array of names of columns in model.tbl to use as predictor
                 OptionalArgs.intercept logical = true % include an intercept term
                 OptionalArgs.motion_covariate logical = true % include motion as a covariate
-                OptionalArgs.covariates (1,:) string = [] % cell array of column names in model.tbl to include as covarriates
-                OptionalArgs.show_progress logical = true % show progres indicator
+                OptionalArgs.covariates string {mustBeVectorOrEmpty} = []
+                OptionalArgs.show_progress logical = true
             end
 
             % Store list of predictors.
             this.x_names = x_names;
+            this.covariates = OptionalArgs.covariates;
+            this.intercept = OptionalArgs.intercept;
+            this.motion_covariate = OptionalArgs.motion_covariate;
             
             % Closure to make the design matrices.
             function X = make_design_matrix(xi)

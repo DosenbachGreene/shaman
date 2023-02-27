@@ -14,8 +14,8 @@ classdef SplitModelFit < ModelFit
                 x_names (1,:) string {mustBeNonempty} % cell array of names of columns in model.tbl to use as predictor
                 OptionalArgs.intercept logical = true % include an intercept term
                 OptionalArgs.motion_covariate logical = true % include motion as a covariate
-                OptionalArgs.covariates (1,:) string = [] % cell array of column names in model.tbl to include as covarriates
-                OptionalArgs.show_progress logical = true % show progres indicator
+                OptionalArgs.covariates string {mustBeVectorOrEmpty} = []
+                OptionalArgs.show_progress logical = true
             end
             
             % Delegate to superclass constructor.
