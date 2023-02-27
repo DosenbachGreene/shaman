@@ -1,6 +1,5 @@
 classdef SplitModel < Model
-    % Load in data from a DataProvider to generate a split-half difference
-    % connectivity matrices and a table of covariates.
+    % A model of split-half (as opposed to full) connectivity.
     %
     % 1. A connectivity matrix is generated from the high- and low-motion
     % halves of each participants MRI data.
@@ -13,21 +12,28 @@ classdef SplitModel < Model
     % halves, the split can be randomized with respect to motion for the
     % purpose of permutation testing.
     properties (SetAccess=protected, GetAccess=public)
-        con % participant (rows) x node (column) connectivity matrices; unvectorize using corrmat_unvectorie()
-        motion % participant (rows) x 1 table of motion
-        tbl % participant (rows) x covariate (column) table of variables
-        randomized % whether split was randomized with respect to motion
+        con % See Model.con.
+        motion % See Model.motion.
+        tbl % See model.tbl.
+        randomized logical = false % Whether split was randomized with respect to motion.
     end
     methods
         function this = SplitModel(data_provider, OptionalArgs)
-            % Use the supplied DataProvider to populate the connectivity
-            % matrices and table of regressors for this model.
-
             arguments
                 data_provider DataProvider
-                OptionalArgs.show_progress logical = true % dispay progress indicator
-                OptionalArgs.randomize = false % randomize split with respect to motion
+                OptionalArgs.show_progress logical = true
+                OptionalArgs.randomize logical = false
             end
+            % Generate the model using data from the supplied DataProvider.
+            %
+            % Optional arguments:
+            %
+            % show_progress: Whether to show a progress indicator. Default: true
+            % randomize:
+            %     Whether to randomize the order of the split.
+            %     Default: false, order the split from low to high motion.
+
+            % Store arguments.
             this.randomized = OptionalArgs.randomize;
             
             % Rewind the data provider to its beginning.
@@ -128,6 +134,9 @@ classdef SplitModel < Model
                 data Data
                 randomize logical
             end
+            % Split data in half by motion or at random.
+            % Compute connectivity from the low- and high-motion halves.
+            % Average motion from the low- and high-motion halves.
 
             if randomize
                 % Sort fMRI data randomly.
@@ -136,26 +145,29 @@ classdef SplitModel < Model
                 % Sort fMRI data from low motion to high motion.
                 [~,i] = sort(data.motion);
             end
-
-            % Generate connectivity matrices from low- and high-data.
             i_low = i(1:floor(length(i)/2));
             i_high = i(floor(length(i)/2)+1:length(i));
-            motion_low = mean(data.motion(i_low));
-            motion_high = mean(data.motion(i_high));
+
+            % Generate connectivity matrices from low- and high-data.
             con_low = corrmat_vectorize(atanh(corr(data.fmri(i_low,:))));
             con_high = corrmat_vectorize(atanh(corr(data.fmri(i_high,:))));
+
+            % Average motion from the low- and high-data.
+            motion_low = mean(data.motion(i_low));
+            motion_high = mean(data.motion(i_high));
         end
         function resid = residualize(fmri, motion)
-            % Fit the model fmri ~ 1 + motion
-            % and return the residuals.
             arguments
-                fmri double
-                motion (:,1) double
+                fmri {mustBeNumeric,mustBeNonempty}
+                motion (:,1) {mustBeNumeric,mustBeNonempty}
             end
+            % Fit the model fmri ~ 1 + motion
+            % and return the intercept + the residuals.
+
             assert(size(fmri,1) == length(motion));
             x = [ones(length(motion),1), motion];
             b = x\fmri;
-            resid = fmri - x*b;
+            resid = fmri - motion*b(2,:);
         end
     end
 end

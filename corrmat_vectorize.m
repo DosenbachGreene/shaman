@@ -1,6 +1,10 @@
 function v = corrmat_vectorize(m)
-% CORRMAT_VECTORIZE  Flatten a correlation matrix into a column vector of
-% its lower triangular matrix.
+% Flatten a correlation matrix into a vector of its unique elements.
+%
+% Note that there is more than one scheme for vectorizeing a correlation matrix.
+% This particular function concatenates the columns of the lower triangular
+% matrix from left to write. The exact scheme used is not important so long as
+% the same scheme is used to vectorize and unvectorize the matrix.
 % 
 % Example:
 %     m = [1,2,3;4,5,6;7,8,9]
@@ -15,7 +19,7 @@ function v = corrmat_vectorize(m)
 %     
 %         4     7     8
 % 
-% See also: CORRMAT_UNVECTORIZE, TRIL
+% See also: corrmat_unvectorize()
 
 % Matrix must be square.
 msize = size(m);

@@ -1,8 +1,8 @@
 classdef NullDataProvider < DataProvider
     % A DataProvider that does not provide any data.
     %
-    % Useful as a default value wherever the abstract DataProvider class
-    % must be instantiated.
+    % Useful as a default value for properties of the abstract DataProvider
+    % class that must be instantiated.
     methods
         function data = dataAt(~, ~)
             error("The null data provider cannot provide any data.");

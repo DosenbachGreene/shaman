@@ -1,6 +1,5 @@
 function m = corrmat_unvectorize(v)
-% CORRMAT_UNVECTORIZE  Reconstitute a correlation matrix from a column vector
-% of its lower triangular matrix.
+% Reconstitute a correlation matrix that was vectorized by corrmat_vectorize().
 % 
 % Example:
 %     v = [5;7;8];
@@ -10,8 +9,6 @@ function m = corrmat_unvectorize(v)
 %         0     5     7
 %         5     0     8
 %         7     8     0
-% 
-% See also: CORRMAT_VECTORIZE, TRIL
 
 % Calculate matrix size
 msize = (1 + sqrt(1 + 8*length(v))) / 2;
@@ -34,4 +31,3 @@ end
 
 % Mirror lower triangular matrix to upper
 m = tril(m)' + m;
-

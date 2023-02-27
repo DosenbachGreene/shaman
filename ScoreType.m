@@ -1,4 +1,5 @@
 classdef ScoreType
+    % Type of motion impact score, e.g. false positive.
     enumeration
         FalsePositive, FalseNegative, TwoSided
     end

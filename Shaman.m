@@ -24,16 +24,16 @@ classdef Shaman < handle
     %     tbl = shaman.get_scores_as_table("score_type", ScoreType.FalsePositive);
 
     properties (SetAccess=protected, GetAccess=public)
-        data_provider DataProvider = NullDataProvider() % Source of imaging and non-imaging (e.g. behavioral, biophysical, etc) data.
-        x_names (1,:) string {mustBeNonempty} = [0] % Names of non-imaging variables provided by the DataProvider upon which to compute motion impact score. A separate score is computed independently for each variable. Example: ["trait1", "trait2"]
+        data_provider DataProvider = NullDataProvider() % A DataProvider, the source of imaging and non-imaging (e.g. behavioral, biophysical, etc) data.
+        x_names string {mustBeVector,mustBeNonempty} = [0] % Names of non-imaging variables provided by the DataProvider upon which to compute motion impact score. A separate score is computed independently for each variable. Example: ["trait1", "trait2"]
         full_model_fit FullModelFit % ModelFit object for the "full" (not split-half) connectivity matrix for each variable.
         split_model_fit SplitModelFit % ModelFit object for the split-half (by motion) connectivity matrix for each variable. This is the raw motion impact before permutation and non-parametric combining to get a motion impact score.
         permutations Permutations % Permutations object.  Set shaman.permutations.nperm = 1000 to run a thousand (or whatever number you want) permutations.
         intercept logical = true % Whether to model an intercept term. Default: true
         motion_covariate logical = true % Whether to model motion as a covariate. Default: true
-        covariates (1,:) string % Names of additional non-imaging variables, besides motion and an intercept term, to include as covariates. The default is not to include any extra covariates. Example: ["cov1", "cov2"]
-        n_nodes {mustBeInteger, mustBePositive} % Number of nodes (i.e. voxels, vertices, regions, parcels) in the model.
-        n_edges {mustBeInteger, mustBePositive} % Number of edges (i.e. pairwise connections) in the model.
+        covariates string {mustBeVectorOrEmpty} % Names of additional non-imaging variables, besides motion and an intercept term, to include as covariates. The default is not to include any extra covariates. Example: ["cov1", "cov2"]
+        n_nodes {mustBeInteger,mustBePositive} % Number of nodes (i.e. voxels, vertices, regions, parcels) in the model.
+        n_edges {mustBeInteger,mustBePositive} % Number of edges (i.e. pairwise connections) in the model.
     end
     properties
         show_progress logical = true % Whether to show a progress indicator for operations that could take a long time. Default: true
@@ -42,12 +42,12 @@ classdef Shaman < handle
         function this = Shaman(data_provider, x_names, OptionalArgs)
             arguments
                 data_provider DataProvider
-                x_names (1,:) string {mustBeNonempty}
-                OptionalArgs.nperm {mustBeInteger, mustBeNonnegative} = 0
-                OptionalArgs.intercept logical = true % include an intercept term
-                OptionalArgs.motion_covariate logical = true % include motion as a covariate
-                OptionalArgs.covariates (1,:) string = [] % cell array of variable names to include as covarriates
-                OptionalArgs.show_progress logical = true % display progress
+                x_names string {mustBeVector,mustBeNonempty}
+                OptionalArgs.nperm {mustBeInteger,mustBeNonnegative} = 0
+                OptionalArgs.intercept logical = true
+                OptionalArgs.motion_covariate logical = true
+                OptionalArgs.covariates string {mustBeVectorOrEmpty} = []
+                OptionalArgs.show_progress logical = true
             end
             % Construct a new Shaman object.
             %
@@ -63,19 +63,19 @@ classdef Shaman < handle
             %
             % Optional arguments:
             %
-            %     nperm:
-            %         Number of permutations to perform. Default: 0
-            %         You can also set the property
-            %         Shaman.permutations.nperm to perform additional
-            %         permutations after the Shaman object has been
-            %         created.
-            %     intercept: Whether to model an intercept term.
-            %     motion_covariate: Whether to model motion as a covariate.
-            %     covariates:
-            %         Names of additional non-imaging variables to model as
-            %         covariates. Default: empty. Example: ["cov1", "cov2"]
-            %     show_progress:
-            %         Whether to show a progress indicator. Default: true
+            % nperm:
+            %     Number of permutations to perform. Default: 0
+            %     You can also set the property
+            %     Shaman.permutations.nperm to perform additional permutations
+            %     after the Shaman object has been created.
+            % intercept: Whether to model an intercept term. Default: true
+            % motion_covariate:
+            %     Whether to model motion as a covariate. Default: true
+            % covariates:
+            %     Names of additional non-imaging variables to model as
+            %     covariates. Default: []
+            %     Example: ["cov1", "cov2"]
+            % show_progress: Whether to show a progress indicator. Default: true
 
             % Store arguments in self.
             this.data_provider = data_provider;
@@ -89,7 +89,7 @@ classdef Shaman < handle
             if this.show_progress
                 fprintf('Loading data for full model: ');
             end
-            model = FullModel(this.data_provider, "Progress", this.show_progress);
+            model = FullModel(this.data_provider, "show_progress", this.show_progress);
             if this.show_progress
                 fprintf('Fitting variables to full model: ');
             end
@@ -149,27 +149,26 @@ classdef Shaman < handle
             %
             % Optional arguments:
             %
-            %     x:
-            %         Vector of names of variables, e.g. ["var1", "var2"],
-            %         or indices of variables in Shaman.x_names, e.g. [1,
-            %         2], to compute u-values for.  Defaults to an empty
-            %         vector [], for which all the variables in
-            %         Shaman.x_names are used.
-            %     score_type: A ScoreType. Default: ScoreType.TwoSided
-            %     t_thresh:
-            %         A t-value threshold. The threshold is used for
-            %         FalsePositive or FalseNegative tests. Default: 2
-            %     nodes:
-            %         Vector specifying a subset of nodes to analyze, e.g.
-            %         [1,2,3]. Defaults to an empty vector [], for which
-            %         all nodes are analyzed. Cannot be mixed with edges.
-            %     edges:
-            %         Vector specifying a subset of edges to analyze, e.g.
-            %         [1,2,3]. Default to an empty vector [], for which all
-            %         edges are analyzed. Cannot be mixed with nodes.
-            %     show_progress:
-            %         Whether to show a progress indicator. Default to the
-            %         Shaman.show_progress property.
+            % x:
+            %     Vector of names of variables, e.g. ["var1", "var2"], or
+            %     indices of variables in Shaman.x_names, e.g. [1, 2], to
+            %     compute u-values for.  Defaults to [], for which all the
+            %     variables in Shaman.x_names are used.
+            % score_type: A ScoreType. Default: ScoreType.TwoSided
+            % t_thresh:
+            %     A t-value threshold. The threshold is used for FalsePositive
+            %     or FalseNegative tests. Default: 2
+            % nodes:
+            %     Vector specifying a subset of nodes to analyze, e.g.
+            %     [1,2,3]. Defaults to [], for which all nodes are analyzed.
+            %     Cannot be mixed with edges.
+            % edges:
+            %     Vector specifying a subset of edges to analyze, e.g.
+            %     [1, 2, 3]. Default to []], for which all edges are analyzed.
+            %     Cannot be mixed with nodes.
+            % show_progress:
+            %     Whether to show a progress indicator. Default to the
+            %     Shaman.show_progress property.
 
             % Validate x argument and convert to indices in this.x_names.
             xidx = this.xtoidx(OptionalArgs.x);
@@ -244,28 +243,27 @@ classdef Shaman < handle
             %
             % Optional arguments:
             %
-            %     x:
-            %         Vector of names of variables, e.g. ["var1", "var2"],
-            %         or indices of variables in Shaman.x_names, e.g. [1,
-            %         2], to compute u-values for.  Defaults to an empty
-            %         vector [], for which all the variables in
-            %         Shaman.x_names are used.
-            %     score_type: A ScoreType. Default: ScoreType.TwoSided
-            %     npc_method: An NpcMethod, Default: Stouffer
-            %     t_thresh:
-            %         A t-value threshold. The threshold is used for
-            %         FalsePositive or FalseNegative tests. Default: 2
-            %     nodes:
-            %         Vector specifying a subset of nodes to analyze, e.g.
-            %         [1,2,3]. Defaults to an empty vector [], for which
-            %         all nodes are analyzed. Cannot be mixed with edges.
-            %     edges:
-            %         Vector specifying a subset of edges to analyze, e.g.
-            %         [1,2,3]. Default to an empty vector [], for which all
-            %         edges are analyzed. Cannot be mixed with nodes.
-            %     show_progress:
-            %         Whether to show a progress indicator. Default to the
-            %         Shaman.show_progress property.
+            % x:
+            %     Vector of names of variables, e.g. ["var1", "var2"], or
+            %     indices of variables in Shaman.x_names, e.g. [1, 2], to
+            %     compute u-values for. Defaults to [], for which all the
+            %     variables in Shaman.x_names are used.
+            % score_type: A ScoreType. Default: ScoreType.TwoSided
+            % npc_method: An NpcMethod, Default: Stouffer
+            % t_thresh:
+            %     A t-value threshold. The threshold is used for FalsePositive
+            %     or FalseNegative tests. Default: 2
+            % nodes:
+            %     Vector specifying a subset of nodes to analyze, e.g.
+            %     [1, 2, 3]. Defaults to [], for which all nodes are analyzed.
+            %     Cannot be mixed with edges.
+            % edges:
+            %     Vector specifying a subset of edges to analyze, e.g.
+            %     [1, 2, 3]. Defaults to [], for which all edges are analyzed.
+            %     Cannot be mixed with nodes.
+            % show_progress:
+            %     Whether to show a progress indicator. Default to the
+            %     Shaman.show_progress property.
 
             % Validate x argument and convert to indices in this.x_names.
             xidx = this.xtoidx(OptionalArgs.x);

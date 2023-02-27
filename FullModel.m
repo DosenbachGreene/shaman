@@ -1,26 +1,27 @@
 classdef FullModel < Model
-    % Load in data from a DataProvider to generate full (as opposed to
-    % split-half) connectivity matrices and a table of covarariates.
+    % A model of full (as opposed to split-half) connectivity.
     properties (SetAccess=protected, GetAccess=public)
-        con % participant (rows) x node (column) connectivity matrices; unvectorize using corrmat_unvectorie()
-        motion % participant (rows) x 1 table of motion
-        tbl % participant (rows) x covariate (column) table of variables
+        con % See Model.con.
+        motion % See Model.motion.
+        tbl % See model.tbl.
     end
     methods
         function this = FullModel(data_provider, OptionalArgs)
-            % Use the supplied DataProvider to populate the connectivity
-            % matrices and table of regressors for this model.
-
             arguments
                 data_provider DataProvider
-                OptionalArgs.Progress logical = true
+                OptionalArgs.show_progress logical = true
             end
+            % Generate the model using data from the supplied DataProvider.
+            %
+            % Optional arguments:
+            %
+            % show_progress: Whether to show a progress indicator. Default: true
             
             % Rewind the data provider to its beginning.
             data_provider.reset();
             
             % Display progress.
-            if OptionalArgs.Progress
+            if OptionalArgs.show_progress
                 fprintf('Processing participant 1');
                 line_length = 1;
             end
@@ -50,7 +51,7 @@ classdef FullModel < Model
                 i = i + 1;
 
                 % Display progress.
-                if OptionalArgs.Progress
+                if OptionalArgs.show_progress
                     fprintf(repmat('\b',1,line_length));
                     line_length = fprintf('%d of %d', i, data_provider.size_hint_participants());
                 end
@@ -63,6 +64,8 @@ classdef FullModel < Model
 
                 % Average motion.
                 this.motion(i) = mean(data.motion);
+
+                % Append non-imaging data to the table.
                 if size(this.tbl,1) >= i
                     this.tbl(i,:) = data.tbl;
                 else
@@ -78,9 +81,9 @@ classdef FullModel < Model
                 this.motion = this.motion(1:i);
                 this.tbl = this.tbl(1:i, :);
             end
-            
+
             % Display progress.
-            if OptionalArgs.Progress
+            if OptionalArgs.show_progress
                 fprintf(repmat('\b',1,line_length + 23));
                 fprintf('Processed %d participants.\n', i);
             end

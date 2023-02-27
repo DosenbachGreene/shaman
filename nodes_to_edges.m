@@ -1,8 +1,14 @@
 function edges = nodes_to_edges(Args)
     arguments
-        Args.total_nodes {mustBeInteger,mustBePositive,mustBeScalar} % the total number of nodes in a parcellation
-        Args.nodes (1,:) {mustBeInteger,mustBePositive} % a vector of which nodes to select
+        Args.total_nodes {mustBeInteger,mustBePositive,mustBeScalar}
+        Args.nodes {mustBeInteger,mustBePositive,mustBeVector}
     end
+    % Convert a vector of nodes into a vector of edges.
+    %
+    % Takes two named arguments:
+    %
+    %     total_nodes: The total number of nodes in the parcellation.
+    %     nodes: Vector of nodes to select.
 
     % Generate a connectivity matrix with ones in the rows and columns for
     % the desired nodes.

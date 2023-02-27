@@ -1,22 +1,27 @@
 classdef NpcScores < handle
     properties
-        npc_method NpcMethod {mustBeScalar,mustBeNonempty} = NpcMethod.getDefaultValue()
-        score_type ScoreType {mustBeScalar,mustBeNonempty} = ScoreType.getDefaultValue()
-        t_thresh {mustBeNumeric,mustBeNonnegative,mustBeScalar} = 0
-        scores {mustBeNumeric} = []
-        p_values {mustBeNumeric,mustBeNonnegative} = []
-        x_names (1,:) string = []
+        npc_method NpcMethod {mustBeScalar,mustBeNonempty} = NpcMethod.getDefaultValue() % NpcMethod, Default: Stouffer
+        score_type ScoreType {mustBeScalar,mustBeNonempty} = ScoreType.getDefaultValue() % ScoreType, Default: TwoSided
+        t_thresh {mustBeNumeric,mustBeNonnegative,mustBeScalar} = 0 % t-valuue threshold for FalsePositive or FalseNegative scores, Default: NaN
+        scores {mustBeNumeric} = [] % Matrix of non-parametric combining scores. By convention the dimensions are permutations (or 1 row if not permuted) x edges or nodes (or 1 column if combining across an entire connectivity matrix) x predictor variables. Default: []
+        p_values {mustBeNumeric,mustBeNonnegative} = [] % Matrix of p-values associated with scores. By convention the dimensions are permutations (or 1 row if not permuted) x edges or nodes (or 1 column if combining across an entire connectivity matrix) x predictor variables. Default: []
+        x_names string {mustBeVectorOrEmpty} = [] % String vector with names of predictor variables in the third dimension of NpcScores.scores. Default: []
     end
     methods
         function this = NpcScores(Args)
             arguments
                 Args.npc_method NpcMethod {mustBeScalar,mustBeNonempty} = NpcMethod.getDefaultValue()
                 Args.score_type ScoreType {mustBeScalar,mustBeNonempty} = ScoreType.getDefaultValue()
-                Args.t_thresh {mustBeNumeric,mustBeNonnegative,mustBeScalar} = 0
+                Args.t_thresh {mustBeNumeric,mustBeNonnegative,mustBeScalar} = NaN
                 Args.scores {mustBeNumeric} = []
                 Args.p_values {mustBeNumeric,mustBeNonnegative} = []
-                Args.x_names (1,:) string = []
+                Args.x_names string {mustBeVectorOrEmpty} = []
             end
+            % Construct a new NpcScores object. If called with no arguments an
+            % empty NpcScores object is created. Optional arguments are
+            % npc_method, score_type, t_thresh, scores, p_values, and x_names,
+            % which have the same meaning as they do as properties of NpcScores.
+
             this.npc_method = Args.npc_method;
             this.score_type = Args.score_type;
             this.t_thresh = Args.t_thresh;
@@ -29,6 +34,9 @@ classdef NpcScores < handle
                 this NpcScores
                 other NpcScores
             end
+            % Compute p-values for these scores using the permutations in other.
+            %
+            % other: An NpcScores object with more than one row of scores.
             assert(size(this.scores,1) == 1);
             assert(size(this.scores,3) == size(other.scores,3));
             this.p_values = zeros(1,1,size(this.scores,3));
@@ -38,6 +46,7 @@ classdef NpcScores < handle
         end
         function tbl = to_table(this)
             % Render motion impact scores and p-values as a table.
+            
             assert(size(this.scores, 1) == 1, "Cannot render motion impact scores from multiple permutations as table.");
             assert(size(this.scores,2) == 1);
             assert(size(this.scores,3) == length(this.x_names));
