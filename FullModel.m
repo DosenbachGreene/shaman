@@ -30,7 +30,9 @@ classdef FullModel < Model
             data = data_provider.nextData();
             
             % Compute connectivity from the data.
-            this.con = corrmat_vectorize(atanh(corr(data.fmri)));
+            % Workaround Matlab case # 06060506 by defering assignment to
+            % this until after con is computed.
+            con = atanh(corrmat_vectorize(corr(data.fmri)));
 
             % Average motion.
             this.motion = mean(data.motion);
@@ -40,7 +42,7 @@ classdef FullModel < Model
             if size_hint == 0
                 size_hint = 1;
             end
-            this.con = [this.con; zeros(size_hint, length(this.con))];
+            con = [con; zeros(size_hint, length(con))];
             this.motion = [this.motion; zeros(size_hint, 1)];
             this.tbl = [data.tbl; table('Size', [size_hint, size(data.tbl,2)], 'VariableTypes', varfun(@class,data.tbl,'OutputFormat','cell'), 'VariableNames', data.tbl.Properties.VariableNames)];
             
@@ -60,7 +62,7 @@ classdef FullModel < Model
                 data = data_provider.nextData();
 
                 % Compute connectivity.
-                this.con(i,:) = corrmat_vectorize(atanh(corr(data.fmri)));
+                con(i,:) = corrmat_vectorize(atanh(corr(data.fmri)));
 
                 % Average motion.
                 this.motion(i) = mean(data.motion);
@@ -77,10 +79,14 @@ classdef FullModel < Model
             % Trim data structures if size_hint was larger than the actual
             % number of participants.
             if i < size_hint
-                this.con = con(1:i, :);
+                con = con(1:i, :);
                 this.motion = this.motion(1:i);
                 this.tbl = this.tbl(1:i, :);
             end
+
+            % Workaround Matlab case # 06060506 by defering assignment to
+            % this until after con is computed.
+            this.con = con;
 
             % Display progress.
             if OptionalArgs.show_progress
