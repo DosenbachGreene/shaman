@@ -49,33 +49,58 @@ classdef SplitModel < Model
             this.motion = mean(data.motion);
 
             % Preallocate memory for the remaining participants.
-            con_low = [con_low; zeros(data_provider.size_hint_participants()-1, length(con_low))];
-            con_high = [con_high; zeros(data_provider.size_hint_participants()-1, length(con_high))];
-            motion_low = [motion_low; zeros(data_provider.size_hint_participants()-1, 1)];
-            motion_high = [motion_high; zeros(data_provider.size_hint_participants()-1, 1)];
-            this.motion = [this.motion; zeros(data_provider.size_hint_participants()-1, 1)];
-            this.tbl = [data.tbl; table('Size', [data_provider.size_hint_participants()-1, size(data.tbl,2)], 'VariableTypes', varfun(@class,data.tbl,'OutputFormat','cell'), 'VariableNames', data.tbl.Properties.VariableNames)];
+            size_hint = data_provider.size_hint_participants() - 1;
+            if size_hint == 0
+                size_hint = 1;
+            end
+            con_low = [con_low; zeros(size_hint - 1, length(con_low))];
+            con_high = [con_high; zeros(size_hint - 1, length(con_high))];
+            motion_low = [motion_low; zeros(size_hint - 1, 1)];
+            motion_high = [motion_high; zeros(size_hint - 1, 1)];
+            this.motion = [this.motion; zeros(size_hint - 1, 1)];
+            this.tbl = [data.tbl; table('Size', [size_hint - 1, size(data.tbl,2)], 'VariableTypes', varfun(@class,data.tbl,'OutputFormat','cell'), 'VariableNames', data.tbl.Properties.VariableNames)];
             
             % Load the remaining participants.
-            i = 2;
+            i = 1;
             while data_provider.isMoreData()
+                % Increment participant number.
+                i = i + 1;
+
                 % Display progress.
                 if OptionalArgs.show_progress
                     fprintf(repmat('\b',1,line_length));
                     line_length = fprintf('%d of %d', i, data_provider.size_hint_participants());
                 end
                 
+                % Load data.
                 data = data_provider.nextData();
+
+                % Compute connectivity.
                 [con_low(i,:), con_high(i,:), motion_low(i), motion_high(i)] = this.corr(data,this.randomized);
+
+                % Average motion.
                 this.motion(i) = mean(data.motion);
+
+                % Append non-imaging data to the table.
                 if size(this.tbl,1) >= i
                     this.tbl(i,:) = data.tbl;
                 else
+                    % Resize table if needed.
                     this.tbl = [this.tbl; data.tbl];
                 end
-                i = i + 1;
             end
-            
+
+            % Trim data structures if size_hint was larger than the actual
+            % number of participants.
+            if i < size_hint
+                con_low = con_low(1:i, :);
+                con_high = con_high(1:i, :);
+                motion_low = motion_low(1:i);
+                motion_high = motion_high(1:i);
+                this.motion = this.motion(1:i);
+                this.tbl = this.tbl(1:i, :);
+            end
+
             % Display progress.
             if OptionalArgs.show_progress
                 fprintf(repmat('\b',1,line_length + 23));
@@ -93,7 +118,7 @@ classdef SplitModel < Model
             % Display progress.
             if OptionalArgs.show_progress
                 fprintf(repmat('\b',1,line_length));
-                fprintf('Processed %d participants.\n', i-1);
+                fprintf('Processed %d participants.\n', i);
             end
         end
     end

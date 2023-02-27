@@ -35,34 +35,54 @@ classdef FullModel < Model
             this.motion = mean(data.motion);
 
             % Preallocate memory for the remaining participants.
-            this.con = [this.con; zeros(data_provider.size_hint_participants()-1, length(this.con))];
-            this.motion = [this.motion; zeros(data_provider.size_hint_participants()-1, 1)];
-            this.tbl = [data.tbl; table('Size', [data_provider.size_hint_participants()-1, size(data.tbl,2)], 'VariableTypes', varfun(@class,data.tbl,'OutputFormat','cell'), 'VariableNames', data.tbl.Properties.VariableNames)];
+            size_hint = data_provider.size_hint_participants() - 1;
+            if size_hint == 0
+                size_hint = 1;
+            end
+            this.con = [this.con; zeros(size_hint, length(this.con))];
+            this.motion = [this.motion; zeros(size_hint, 1)];
+            this.tbl = [data.tbl; table('Size', [size_hint, size(data.tbl,2)], 'VariableTypes', varfun(@class,data.tbl,'OutputFormat','cell'), 'VariableNames', data.tbl.Properties.VariableNames)];
             
             % Load the remaining participants.
-            i = 2;
+            i = 1;
             while data_provider.isMoreData()
+                % Increment participant count.
+                i = i + 1;
+
                 % Display progress.
                 if OptionalArgs.Progress
                     fprintf(repmat('\b',1,line_length));
                     line_length = fprintf('%d of %d', i, data_provider.size_hint_participants());
                 end
                 
+                % Load data.
                 data = data_provider.nextData();
+
+                % Compute connectivity.
                 this.con(i,:) = corrmat_vectorize(atanh(corr(data.fmri)));
+
+                % Average motion.
                 this.motion(i) = mean(data.motion);
                 if size(this.tbl,1) >= i
                     this.tbl(i,:) = data.tbl;
                 else
+                    % Resize table if needed.
                     this.tbl = [this.tbl; data.tbl];
                 end
-                i = i + 1;
+            end
+
+            % Trim data structures if size_hint was larger than the actual
+            % number of participants.
+            if i < size_hint
+                this.con = con(1:i, :);
+                this.motion = this.motion(1:i);
+                this.tbl = this.tbl(1:i, :);
             end
             
             % Display progress.
             if OptionalArgs.Progress
                 fprintf(repmat('\b',1,line_length + 23));
-                fprintf('Processed %d participants.\n', i-1);
+                fprintf('Processed %d participants.\n', i);
             end
         end
     end
