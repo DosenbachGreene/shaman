@@ -52,7 +52,7 @@ tbl =
     trait           103.33                     0 
 ```
 
-Read the API documentation.
+Read the API documentation and work through [`example.m`](./example.m).
 
 ```matlab
 >> doc Shaman
