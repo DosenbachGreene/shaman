@@ -140,7 +140,7 @@ classdef SplitModel < Model
 
             if randomize
                 % Sort fMRI data randomly.
-                i = permute_blocks(data);
+                i = SplitModel.permute_blocks(data);
             else
                 % Sort fMRI data from low motion to high motion.
                 [~,i] = sort(data.motion);
@@ -165,10 +165,8 @@ classdef SplitModel < Model
             % Based on FD from midpoint of sorted motion array
             % Loops through timeseries and organizes blocks based on periods of high/low motion
             % Shuffles blocks to reconstruct timeseries 
-            data.motion
             % Initialize variables
             fd = median(data.motion);          % Get average motion and use it as framewise displacement
-            fd
             motion_category = data.motion(1) >= fd;  % Starting category based on first index
             num_timepoints = 0;             % Number of time points in a block
             block_start_idx = 1;            % Starting index of the current block
@@ -207,7 +205,7 @@ classdef SplitModel < Model
             end
 
             % Call the motion_based_blocking function to obtain the original blocks
-            blocks = motion_based_blocking(data);
+            blocks = SplitModel.motion_based_blocking(data);
         
             % Shuffle the order of the blocks to create the permuted timeseries
             num_blocks = numel(blocks);
