@@ -140,7 +140,7 @@ classdef SplitModel < Model
 
             if randomize
                 % Sort fMRI data randomly.
-                i = randperm(length(data.motion));
+                i = permute_blocks(data);
             else
                 % Sort fMRI data from low motion to high motion.
                 [~,i] = sort(data.motion);
@@ -156,6 +156,73 @@ classdef SplitModel < Model
             motion_low = mean(data.motion(i_low));
             motion_high = mean(data.motion(i_high));
         end
+
+        function blocks = motion_based_blocking(data)
+            arguments
+                data Data
+            end
+        
+            % Based on FD from midpoint of sorted motion array
+            % Loops through timeseries and organizes blocks based on periods of high/low motion
+            % Shuffles blocks to reconstruct timeseries 
+            data.motion
+            % Initialize variables
+            fd = median(data.motion);          % Get average motion and use it as framewise displacement
+            fd
+            motion_category = data.motion(1) >= fd;  % Starting category based on first index
+            num_timepoints = 0;             % Number of time points in a block
+            block_start_idx = 1;            % Starting index of the current block
+        
+            % Initialize the data structure to store block information
+            blocks = struct('start_idx', [], 'num_timepoints', []);
+        
+            % Loop through the motion data
+            for i = 1:length(data.motion)
+                if data.motion(i) >= fd
+                    new_category = true;  % Check if it's in the same category as the current block
+                else
+                    new_category = false;
+                end
+        
+                if new_category == motion_category
+                    % Increment num_timepoints if still in the same category
+                    num_timepoints = num_timepoints + 1;
+                else
+                    % We have reached the end of a block
+                    % Save the current block information
+                    blocks(end+1).start_idx = block_start_idx;
+                    blocks(end).num_timepoints = num_timepoints;
+        
+                    % Reset num_timepoints and update motion_category
+                    num_timepoints = 1;  % Set to 1 since we have a new block
+                    motion_category = new_category;
+                    block_start_idx = i;
+                end
+            end
+        end
+
+        function permuted_indices = permute_blocks(data)
+            arguments
+                data Data
+            end
+
+            % Call the motion_based_blocking function to obtain the original blocks
+            blocks = motion_based_blocking(data);
+        
+            % Shuffle the order of the blocks to create the permuted timeseries
+            num_blocks = numel(blocks);
+            permuted_order = randperm(num_blocks);
+            shuffled_blocks = blocks(permuted_order);
+        
+            % Concatenate the permuted blocks to form the permuted timeseries array
+            permuted_indices = [];
+            for i = 1:num_blocks
+                block_idx = shuffled_blocks(i).start_idx;
+                num_timepoints = shuffled_blocks(i).num_timepoints;
+                permuted_indices = [permuted_indices, block_idx:block_idx + num_timepoints - 1];
+            end
+        end
+
         function resid = residualize(fmri, motion)
             arguments
                 fmri {mustBeNumeric,mustBeNonempty}
