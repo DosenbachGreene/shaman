@@ -67,6 +67,12 @@ classdef FullModel < Model
                 % Average motion.
                 this.motion(i) = mean(data.motion);
 
+                % Skip participants with NaN values.
+                if anynan(con(i,:)) || anynan(this.motion(i))
+                    i = i - 1;
+                    continue;
+                end
+
                 % Append non-imaging data to the table.
                 if size(this.tbl,1) >= i
                     this.tbl(i,:) = data.tbl;
