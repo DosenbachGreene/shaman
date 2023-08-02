@@ -16,6 +16,7 @@ classdef ModelFit
         covariates string {mustBeVectorOrEmpty} = [] % names of covariates
         intercept logical = true % whether the model includes an intercept column
         motion_covariate logical = true % whether the model includes motion as a covariate
+        n_participants uint32 % number of participants (rows) in the fitted model
     end
     methods
         function this = ModelFit(model, x_names, OptionalArgs)
@@ -49,6 +50,7 @@ classdef ModelFit
             this.covariates = OptionalArgs.covariates;
             this.intercept = OptionalArgs.intercept;
             this.motion_covariate = OptionalArgs.motion_covariate;
+            this.n_participants = size(model.con,1);
             
             % Closure to make the design matrices.
             function X = make_design_matrix(xi)

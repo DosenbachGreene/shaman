@@ -120,7 +120,7 @@ classdef Permutations < handle
                 % Fit model to the predictors and get t-values.
 
                 fit = SplitModelFit(model, x, "Intercept", intercept, "motion_covariate", motion_covariate, "covariates", covariates, "show_progress", false);
-                t(i, :, :) = fit.t';
+                t(i, :, :) = fit.t;
 
                 % Update progress indicator.
                 if show_progress

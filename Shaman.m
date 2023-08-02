@@ -194,11 +194,11 @@ classdef Shaman < handle
                 end
 
                 % Compute u-values for the not-permuted model.
-                u0(1,:,i) = Shaman.compute_u_values(this.split_model_fit.t(xidx(i),edges), this.permutations.null_model_t(:,edges,xidx(i)), "full_model_t", this.full_model_fit.t(xidx(i),:), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
+                u0(1,:,i) = Shaman.compute_u_values(this.split_model_fit.t(1, edges, xidx(i)), this.permutations.null_model_t(:,edges,xidx(i)), "full_model_t", this.full_model_fit.t(1,edges,xidx(i)), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
                 if nargout > 1
                     % Compute u-values for each permutation.
                     for j=1:this.permutations.nperm
-                        u(j,:,i) = Shaman.compute_u_values(this.permutations.null_model_t(j,edges,xidx(i)), this.permutations.null_model_t(:,edges,xidx(i)), "full_model_t", this.full_model_fit.t(xidx(i),:), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
+                        u(j,:,i) = Shaman.compute_u_values(this.permutations.null_model_t(j,edges,xidx(i)), this.permutations.null_model_t(:,edges,xidx(i)), "full_model_t", this.full_model_fit.t(1,edges,xidx(i)), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
                     end
                 end
             end

@@ -66,7 +66,7 @@ classdef NpcScores < handle
                 sprintf('%0.2f', this.t_thresh);
 
             if length(this.p_values) == length(this.x_names)
-                tbl.(this.score_type.to_string() + " p Value") = this.p_values;
+                tbl.(this.score_type.to_string() + " p Value") = this.p_values(:);
             end
         end
     end
