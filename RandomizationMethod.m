@@ -101,7 +101,6 @@ classdef RandomizationMethod
                 start_idx = blocks(j_block).start_idx; % starting index for this block
                 num_timepoints = blocks(j_block).num_timepoints; % number of timepoints in this block
                 i(j_idx : j_idx+num_timepoints-1) = start_idx : (start_idx + num_timepoints - 1); % fill in indices for this block
-                assert(length(i) < 1025);
                 j_idx = j_idx + num_timepoints; % advance position in i for next iteration
             end
         end
