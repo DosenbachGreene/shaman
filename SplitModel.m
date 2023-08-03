@@ -15,26 +15,27 @@ classdef SplitModel < Model
         con % See Model.con.
         motion % See Model.motion.
         tbl % See model.tbl.
-        randomized logical = false % Whether split was randomized with respect to motion.
+        randomization_method RandomizationMethod % How split was randomized with respect to motion.
     end
     methods
         function this = SplitModel(data_provider, OptionalArgs)
             arguments
                 data_provider DataProvider
                 OptionalArgs.show_progress logical = true
-                OptionalArgs.randomize logical = false
+                OptionalArgs.randomization_method = RandomizationMethod.None
             end
             % Generate the model using data from the supplied DataProvider.
             %
             % Optional arguments:
             %
             % show_progress: Whether to show a progress indicator. Default: true
-            % randomize:
-            %     Whether to randomize the order of the split.
-            %     Default: false, order the split from low to high motion.
+            % randomization_method:
+            %     Whether and how to randomize the order of the split.
+            %     See the documentation for RandomizationMethod.
+            %     Default: RandomizationMethod.None
 
             % Store arguments.
-            this.randomized = OptionalArgs.randomize;
+            this.randomization_method = OptionalArgs.randomization_method;
             
             % Rewind the data provider to its beginning.
             data_provider.reset();
@@ -49,7 +50,7 @@ classdef SplitModel < Model
             data = data_provider.nextData();
             
             % Compute connectivity from the data.
-            [con_low, con_high, motion_low, motion_high] = this.corr(data, this.randomized);
+            [con_low, con_high, motion_low, motion_high] = this.corr(data, this.randomization_method);
 
             % Average motion.
             this.motion = mean(data.motion);
@@ -82,7 +83,7 @@ classdef SplitModel < Model
                 data = data_provider.nextData();
 
                 % Compute connectivity.
-                [con_low(i,:), con_high(i,:), motion_low(i), motion_high(i)] = this.corr(data,this.randomized);
+                [con_low(i,:), con_high(i,:), motion_low(i), motion_high(i)] = this.corr(data,this.randomization_method);
 
                 % Average motion.
                 this.motion(i) = mean(data.motion);
@@ -140,21 +141,21 @@ classdef SplitModel < Model
         end
     end
     methods (Access=private, Static)
-        function [con_low, con_high, motion_low, motion_high] = corr(data, randomize)
+        function [con_low, con_high, motion_low, motion_high] = corr(data, randomization_method)
             arguments
                 data Data
-                randomize logical
+                randomization_method RandomizationMethod
             end
             % Split data in half by motion or at random.
             % Compute connectivity from the low- and high-motion halves.
             % Average motion from the low- and high-motion halves.
 
-            if randomize
-                % Sort fMRI data randomly.
-                i = SplitModel.permute_blocks(data);
-            else
+            if randomization_method == RandomizationMethod.None
                 % Sort fMRI data from low motion to high motion.
                 [~,i] = sort(data.motion);
+            else
+                % Sort fMRI data randomly.
+                i = randomization_method.randomize(data.motion);
             end
             i_low = i(1:floor(length(i)/2));
             i_high = i(floor(length(i)/2)+1:length(i));

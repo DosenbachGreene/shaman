@@ -1,5 +1,6 @@
 classdef NpcScores < handle
     properties
+        randomization_method RandomizationMethod {mustBeScalar,mustBeNonempty,mustRandomize} = RandomizationMethod.getDefaultValue() % How were permutations randomized
         npc_method NpcMethod {mustBeScalar,mustBeNonempty} = NpcMethod.getDefaultValue() % NpcMethod, Default: Stouffer
         score_type ScoreType {mustBeScalar,mustBeNonempty} = ScoreType.getDefaultValue() % ScoreType, Default: TwoSided
         t_thresh {mustBeNumeric,mustBeNonnegative,mustBeScalar} = 0 % t-valuue threshold for FalsePositive or FalseNegative scores, Default: NaN
@@ -12,10 +13,11 @@ classdef NpcScores < handle
             arguments
                 Args.npc_method NpcMethod {mustBeScalar,mustBeNonempty} = NpcMethod.getDefaultValue()
                 Args.score_type ScoreType {mustBeScalar,mustBeNonempty} = ScoreType.getDefaultValue()
-                Args.t_thresh {mustBeNumeric,mustBeNonnegative,mustBeScalar} = NaN
+                Args.t_thresh {mustBeNumeric,mustBeNonnegative,mustBeScalar} = 0
                 Args.scores {mustBeNumeric} = []
                 Args.p_values {mustBeNumeric,mustBeNonnegative} = []
                 Args.x_names string {mustBeVectorOrEmpty} = []
+                Args.randomization_method RandomizationMethod {mustBeScalar,mustBeNonempty,mustRandomize} = RandomizationMethod.getDefaultValue()
             end
             % Construct a new NpcScores object. If called with no arguments an
             % empty NpcScores object is created. Optional arguments are
@@ -28,6 +30,9 @@ classdef NpcScores < handle
             this.scores = Args.scores;
             this.p_values = Args.p_values;
             this.x_names = Args.x_names;
+            if ~isempty(Args.randomization_method)
+                this.randomization_method = Args.randomization_method;
+            end
         end
         function compute_p_values(this, other)
             arguments
@@ -52,12 +57,13 @@ classdef NpcScores < handle
             assert(size(this.scores,3) == length(this.x_names));
             
             tbl = table;
-            tbl = addprop(tbl, ["score_type", "npc_method", "t_thresh"], ["table", "table", "table"]);
+            tbl = addprop(tbl, ["score_type", "npc_method", "t_thresh", "randomization_method"], ["table", "table", "table", "table"]);
             tbl.(this.score_type.to_string() + " Score") = this.scores(:);
             tbl.Properties.RowNames = this.x_names;
             tbl.Properties.CustomProperties.score_type = this.score_type;
             tbl.Properties.CustomProperties.npc_method = this.npc_method;
             tbl.Properties.CustomProperties.t_thresh = this.t_thresh;
+            tbl.Properties.CustomProperties.randomization_method = this.randomization_method;
             tbl.Properties.Description = ...
                 this.score_type.to_string() + ...
                 " Motion Impact Score, " + ...

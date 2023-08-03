@@ -6,6 +6,7 @@ classdef Permutations < handle
         intercept logical = true % Whether the model fit includes an interecept column. Default: true
         covariates string {mustBeVectorOrEmpty} = [] % Names of additional non-imaging variables, besides motion and an intercept term, to include as covariates. The default is not to include any extra covariates. Example: ["cov1", "cov2"]
         motion_covariate logical = true % Whether to include motion as a covaraite. Default: true
+        randomization_method RandomizationMethod {mustRandomize} = RandomizationMethod.getDefaultValue(); % How permutations are randomized.
     end
     properties
         nperm {mustBeInteger,mustBeNonnegative} = 0 % Number of permutations. Defaults to 0. Setting this property to a number X times larger than its initial value Y will keep the first Y permutations and run X-Y additional permutations. If X < Y it will generate an error.
@@ -21,6 +22,7 @@ classdef Permutations < handle
                 OptionalArgs.motion_covariate logical = true
                 OptionalArgs.covariates string {mustBeVectorOrEmpty} = []
                 OptionalArgs.show_progress logical = true
+                OptionalArgs.randomization_method RandomizationMethod {mustRandomize} = RandomizationMethod.getDefaultValue();
             end
             % Set up a permutation test.
             %
@@ -39,7 +41,8 @@ classdef Permutations < handle
             this.motion_covariate = OptionalArgs.motion_covariate;
             this.covariates = OptionalArgs.covariates;
             this.show_progress = OptionalArgs.show_progress;
-
+            this.randomization_method = OptionalArgs.randomization_method;
+            
             % Peek at the data to figure out how many edges there are.
             nedges = this.data_provider.size_voxels(); % actually # of voxels
             if nedges == 0
@@ -81,6 +84,7 @@ classdef Permutations < handle
             intercept = this.intercept;
             motion_covariate = this.motion_covariate;
             covariates = this.covariates;
+            randomization_method = this.randomization_method;
             show_progress = this.show_progress;
 
             % Start parallel pool.
@@ -121,7 +125,7 @@ classdef Permutations < handle
                 worker_local_data_provider = copy(data_provider);
                 
                 % Generate a permuted split model.
-                model = SplitModel(worker_local_data_provider, "Randomize", true, "show_progress", false);
+                model = SplitModel(worker_local_data_provider, "randomization_method", randomization_method, "show_progress", false);
 
                 % Fit model to the predictors and get t-values.
                 fit = SplitModelFit(model, x, "Intercept", intercept, "motion_covariate", motion_covariate, "covariates", covariates, "show_progress", false);
