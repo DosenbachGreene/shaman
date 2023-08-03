@@ -47,6 +47,7 @@ classdef Shaman < handle
                 OptionalArgs.intercept logical = true
                 OptionalArgs.motion_covariate logical = true
                 OptionalArgs.covariates string {mustBeVectorOrEmpty} = []
+                OptionalArgs.randomization_method RandomizationMethod {mustRandomize} = RandomizationMethod.getDefaultValue();
                 OptionalArgs.show_progress logical = true
             end
             % Construct a new Shaman object.
@@ -75,6 +76,9 @@ classdef Shaman < handle
             %     Names of additional non-imaging variables to model as
             %     covariates. Default: []
             %     Example: ["cov1", "cov2"]
+            % randomization_method:
+            %     Randomization method to use for permutation testing.
+            %     See RandomizationMethod.
             % show_progress: Whether to show a progress indicator. Default: true
 
             % Store arguments in self.
@@ -107,7 +111,7 @@ classdef Shaman < handle
             clear model;
 
             % Initialize permutation test.
-            this.permutations = Permutations(this.data_provider, this.x_names, 'covariates', this.covariates, 'intercept', this.intercept, 'motion_covariate', this.motion_covariate, 'show_progress', this.show_progress);
+            this.permutations = Permutations(this.data_provider, this.x_names, "covariates", this.covariates, "intercept", this.intercept, "motion_covariate", this.motion_covariate, "randomization_method", OptionalArgs.randomization_method, "show_progress", this.show_progress);
 
             % Perform permutations.
             if OptionalArgs.nperm > 0
@@ -194,19 +198,19 @@ classdef Shaman < handle
                 end
 
                 % Compute u-values for the not-permuted model.
-                u0(1,:,i) = Shaman.compute_u_values(this.split_model_fit.t(1, edges, xidx(i)), this.permutations.null_model_t(:,edges,xidx(i)), "full_model_t", this.full_model_fit.t(1,edges,xidx(i)), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
+                u0(1,:,i) = Shaman.compute_u_values(this.split_model_fit.t(1, edges, xidx(i)), this.permutations.null_model_t(:,edges,xidx(i)), this.permutations.randomization_method, "full_model_t", this.full_model_fit.t(1,edges,xidx(i)), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
                 if nargout > 1
                     % Compute u-values for each permutation.
                     for j=1:this.permutations.nperm
-                        u(j,:,i) = Shaman.compute_u_values(this.permutations.null_model_t(j,edges,xidx(i)), this.permutations.null_model_t(:,edges,xidx(i)), "full_model_t", this.full_model_fit.t(1,edges,xidx(i)), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
+                        u(j,:,i) = Shaman.compute_u_values(this.permutations.null_model_t(j,edges,xidx(i)), this.permutations.null_model_t(:,edges,xidx(i)), this.permutations.randomization_method, "full_model_t", this.full_model_fit.t(1,edges,xidx(i)), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh).u;
                     end
                 end
             end
 
             % Package results as UValues objects.
-            u0 = UValues("u", u0, "score_type", OptionalArgs.score_type, "x_names", this.x_names(xidx), "t_thresh", OptionalArgs.t_thresh);
+            u0 = UValues("u", u0, "score_type", OptionalArgs.score_type, "x_names", this.x_names(xidx), "t_thresh", OptionalArgs.t_thresh, "randomization_method", this.permutations.randomization_method);
             if nargout > 1
-                u = UValues("u", u, "score_type", OptionalArgs.score_type, "x_names", this.x_names(xidx), "t_thresh", OptionalArgs.t_thresh);
+                u = UValues("u", u, "score_type", OptionalArgs.score_type, "x_names", this.x_names(xidx), "t_thresh", OptionalArgs.t_thresh, "randomization_method", this.permutations.randomization_method);
             end
             if OptionalArgs.show_progress
                 fprintf(repmat('\b', 1, line_length1 + line_length2));
@@ -345,7 +349,7 @@ classdef Shaman < handle
             xidx = this.xtoidx(OptionalArgs.x);
 
             % Preallocate memory.
-            npc0 = NpcScores("score_type", OptionalArgs.score_type, "npc_method", OptionalArgs.npc_method, "t_thresh", OptionalArgs.t_thresh, "x_names", this.x_names(xidx));
+            npc0 = NpcScores("score_type", OptionalArgs.score_type, "npc_method", OptionalArgs.npc_method, "t_thresh", OptionalArgs.t_thresh, "x_names", this.x_names(xidx), "randomization_method", this.permutations.randomization_method);
             npc0.scores = zeros(1, this.n_nodes, length(xidx));
             if OptionalArgs.compute_p_values
                 npc0.p_values = zeros(1, this.n_nodes, length(xidx));
@@ -378,10 +382,11 @@ classdef Shaman < handle
         end
     end
     methods (Static)
-        function u = compute_u_values(t0, tperm, OptionalArgs)
+        function u = compute_u_values(t0, tperm, randomization_method, OptionalArgs)
             arguments
                 t0 {mustBeNumeric,mustBeVector}
                 tperm {mustBeNumeric,ismatrix}
+                randomization_method RandomizationMethod {mustBeScalar,mustBeNonempty,mustRandomize}
                 OptionalArgs.full_model_t {mustBeNumeric,mustBeVectorOrEmpty} = []
                 OptionalArgs.score_type ScoreType = ScoreType.getDefaultValue()
                 OptionalArgs.t_thresh {mustBeNumeric,mustBeScalar,mustBeNonnegative} = 2
@@ -417,7 +422,7 @@ classdef Shaman < handle
             end
 
             % Package result as a UValues object.
-            u = UValues("u", u, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh);
+            u = UValues("u", u, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "randomization_method", randomization_method);
         end
         function npc = compute_npc_scores(u, OptionalArgs)
             arguments
@@ -458,7 +463,7 @@ classdef Shaman < handle
             end
             
             % Package into an NpcScores object.
-            npc = NpcScores("scores", npc, "score_type", u.score_type, "t_thresh", u.t_thresh, "npc_method", OptionalArgs.npc_method, "x_names", u.x_names);
+            npc = NpcScores("scores", npc, "score_type", u.score_type, "t_thresh", u.t_thresh, "npc_method", OptionalArgs.npc_method, "x_names", u.x_names, "randomization_method", u.randomization_method);
         end
     end
     methods (Access = private)
@@ -499,7 +504,7 @@ classdef Shaman < handle
             % Take a vector of nodes and a vector of edges.
             % Make sure at least one of them is empty.
             % Make sure the entries are valid.
-            % If we have a vector of nodes, confer it to a vector of edges.
+            % If we have a vector of nodes, convert it to a vector of edges.
 
             if isempty(nodes) && isempty(edges)
                 edges = 1:this.n_edges;

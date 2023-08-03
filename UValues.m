@@ -6,6 +6,7 @@ classdef UValues
     % Non-parametric combination and related permutation tests for neuroimaging.
     % Hum Brain Mapp. 2016 Apr;37(4):1486-511. doi: 10.1002/hbm.23115
     properties
+        randomization_method RandomizationMethod {mustBeScalar,mustBeNonempty,mustRandomize} = RandomizationMethod.getDefaultValue()
         score_type ScoreType {mustBeScalar,mustBeNonempty} = ScoreType.getDefaultValue() % ScoreType, Default: TwoSided
         u {mustBeNumeric} = [] % Matrix of u-values. By convention the dimensions are permutations (or 1 row if not permuted) x edges (columns) x predictor variables. Default: []
         t_thresh {mustBeScalar,mustBeNumeric,mustBeNonnegative} = 0; % Zero or a positive number used as a t-value threshold for FalsePositive and FalseNegative scores. Default: 0
@@ -18,6 +19,7 @@ classdef UValues
                 Args.u {mustBeNumeric} = []
                 Args.t_thresh {mustBeScalar,mustBeNumeric,mustBeNonnegative} = 0
                 Args.x_names string {mustBeVectorOrEmpty} = []
+                Args.randomization_method RandomizationMethod {mustBeScalar,mustBeNonempty,mustRandomize} = RandomizationMethod.getDefaultValue()
             end
             % Construct a new UValues object. If called with no arguments an
             % empty UValues object is created. Optional arguments are score_type
