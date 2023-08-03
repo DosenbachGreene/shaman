@@ -114,11 +114,16 @@ classdef Permutations < handle
                 if show_progress
                     send(data_queue,'start');
                 end
-                
-                % Generat a permuted split model.
-                model = SplitModel(data_provider, "Randomize", true, "show_progress", false);
-                % Fit model to the predictors and get t-values.
 
+                % Make a copy of the DataProvider to prevent a race
+                % condition that could arise from multiple workers
+                % operating on the same handle object.
+                worker_local_data_provider = copy(data_provider);
+                
+                % Generate a permuted split model.
+                model = SplitModel(worker_local_data_provider, "Randomize", true, "show_progress", false);
+
+                % Fit model to the predictors and get t-values.
                 fit = SplitModelFit(model, x, "Intercept", intercept, "motion_covariate", motion_covariate, "covariates", covariates, "show_progress", false);
                 t(i, :, :) = fit.t;
 

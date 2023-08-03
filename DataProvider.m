@@ -1,10 +1,16 @@
-classdef (Abstract) DataProvider < handle
+classdef (Abstract) DataProvider < handle & matlab.mixin.Copyable
     % Matlab class to provide neuroimaging data and associated metadata
     % such as motion/framewise displacement and non-imaging variables (e.g.
     % behavioral data). You must implement this class to feed your data
     % into Shaman. Specifically, you must implement nextData(),
-    % isMoreData(), and reset(). See SimulatedDataProvider for a reference
-    % implementation.
+    % isMoreData(), reset(), and possibly copyElement(). See
+    % SimulatedDataProvider for a reference implementation.
+    %
+    % You will need to implement copyElement() if your subclass has custom
+    % copy behavior. DataProvider objects are copied to workers during
+    % parallel processing to prevent a race condition that could arise from
+    % multiple workers calling nextData() on the same handle object.  See
+    % the documentation for matlab.mixin.Copyable for details.
     %
     % The DataProvider functions much like an iterator over study
     % participants. Participant's data is produced one-at-a-time, which
