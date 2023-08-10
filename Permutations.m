@@ -64,11 +64,25 @@ classdef Permutations < handle
             end
         end
         function set.nperm(this, nperm)
-            % Increase the number of permutations.
             arguments
                 this
                 nperm {mustBePositive, mustBeInteger}
             end
+            % Increase the number of permutations.
+            
+            % Do nothing if the number of permutations has not changed.
+            % First, check if this.nperm == nperm.
+            if this.nperm == nperm
+                return
+            end
+            % Next, check if the number of rows in this.null_model_t is
+            % equal to nperm.  This will happen if we are being called
+            % from Matlab's loadobj.
+            if nperm == size(this.null_model_t, 1)
+                this.nperm = nperm; % update value of this.nperm for loadobj
+                return
+            end
+
             assert(nperm >= 8, 'Must perform at least 8 permutations.')
             assert(nperm >= this.nperm, 'Cannot decrease the number of permutations.')
             
