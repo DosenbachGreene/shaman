@@ -324,37 +324,84 @@ classdef Shaman < handle
                 npc = zeros(this.permutations.nperm, 1, length(xidx));
             end
 
+            % Cache some variables on the function stack to make parfor
+            % happier.
+            ntraits = length(xidx);
+            nperm = this.permutations.nperm;
+            nedges = length(edges);
+            score_type = OptionalArgs.score_type;
+            npc_method = OptionalArgs.npc_method;
+            t_thresh = OptionalArgs.t_thresh;
+            full_model_t = this.full_model_fit.t(:, edges, :);
+            split_model_t = this.split_model_fit.t(:, edges, :);
+            null_model_t = this.permutations.null_model_t(:, edges, :);
+            randomization_method = this.permutations.randomization_method;
+            x_names = this.x_names;
+            show_progress = OptionalArgs.show_progress;
+            nout = nargout;
+
+            % Start parallel pool.
+            p = gcp('nocreate');
+            if isempty(p)
+                parpool;
+            end
+
+            % Show progress indicator
+            running = 0;
+            finished = 0;
+            line_length = 0;
+            function update_progress(status)
+                if strcmp(status, 'start')
+                    running = running + 1;
+                elseif strcmp(status, 'finish')
+                    finished = finished + 1;
+                    running = running - 1;
+                end
+                fprintf(repmat('\b', 1, line_length));
+                line_length = fprintf('Performing %s non-parametric combining on %d workers.\nFinished %d of %d traits.', score_type.to_string(), running, finished, ntraits);
+            end
+            data_queue = parallel.pool.DataQueue; % For unclear reasons, Matlab requires data_queue to exist even if show_progress is false.
+            if show_progress
+                afterEach(data_queue, @update_progress);
+            end
+
             % Iterate over xidx and compute npc values.
             % This is more memory-efficient than delegating to
             % get_u_values() because we do not need to instantiate the
             % entire u matrix for all elements in xidx in memory at once.
-            if OptionalArgs.show_progress
-                line_length1 = fprintf("Performing %s non-parametric combining on variable ", OptionalArgs.npc_method.to_string());
-                line_length2 = fprintf("%d of %d", 1, length(xidx));
-            end
-            for i_xidx = 1:length(xidx)
-                % Get u-values.
-                if nargout < 2
-                    u0 = this.get_u_values("x", xidx(i_xidx), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "edges", edges, "show_progress", false);
-                else
-                    [u0, u] = this.get_u_values("x", xidx(i_xidx), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "edges", edges, "show_progress", false);
+            parfor i_xidx = 1:ntraits
+                % Update progress indicator.
+                if show_progress
+                    send(data_queue,'start');
+                end
+
+                % Compute u-values for the not-permuted model.
+                u0_i = Shaman.compute_u_values(split_model_t(1, :, xidx(i_xidx)), null_model_t(:,:,xidx(i_xidx)), randomization_method, "full_model_t", full_model_t(1,:,xidx(i_xidx)), "score_type", score_type, "t_thresh", t_thresh);
+                if nout > 1
+                    % Compute u-values for each permutation.
+                    u_i = zeros(nperm, nedges); % assign to thread-local variable to make parfor happy
+                    for j_perm=1:nperm
+                        u_i(j_perm,:) = Shaman.compute_u_values(null_model_t(j_perm,:,xidx(i_xidx)), null_model_t(:,:,xidx(i_xidx)), randomization_method, "full_model_t", full_model_t(1,:,xidx(i_xidx)), "score_type", score_type, "t_thresh", t_thresh).u;
+                    end
+                    u_i = UValues("u", u_i, "score_type", score_type, "x_names", x_names(xidx(i_xidx)), "t_thresh", t_thresh, "randomization_method", randomization_method);
                 end
                 
                 % Convert u-values to npc scores.
-                if nargout < 2
-                    npc0(:,:,i_xidx) = Shaman.compute_npc_scores(u0, "npc_method", OptionalArgs.npc_method, "show_progress",false).scores;
+                if nout < 2
+                    npc0(:,:,i_xidx) = Shaman.compute_npc_scores(u0_i, "npc_method", npc_method, "show_progress",false).scores;
                 else
-                    npc0_i = Shaman.compute_npc_scores(u0, "npc_method", OptionalArgs.npc_method, "show_progress", false);
-                    npc_i = Shaman.compute_npc_scores(u, "npc_method", OptionalArgs.npc_method, "show_progress", false);
+                    npc0_i = Shaman.compute_npc_scores(u0_i, "npc_method", npc_method, "show_progress", false);
+                    npc_i = Shaman.compute_npc_scores(u_i, "npc_method", npc_method, "show_progress", false);
                     npc0_i.compute_p_values(npc_i);
                     npc0(:,:,i_xidx) = npc0_i.scores;
                     p_values(:,i_xidx) = npc0_i.p_values;
                     npc(:,:,i_xidx) = npc_i.scores;
                 end
-            end
-            if nargout > 1
-                % Clean up memory.
-                clear npc0_i npc_i
+
+                % Update progress indicator.
+                if show_progress
+                    send(data_queue,'finish');
+                end
             end
 
             % Package up results into NpcScores object(s).
@@ -366,7 +413,7 @@ classdef Shaman < handle
 
             % Final progress message.
             if OptionalArgs.show_progress
-                fprintf(repmat('\b', 1, line_length1 + line_length2));
+                fprintf(repmat('\b', 1, line_length));
                 fprintf("Performed %s non-parametric combining on %d variables.\n", OptionalArgs.npc_method.to_string(), length(xidx));
             end
         end
