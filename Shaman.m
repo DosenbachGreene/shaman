@@ -182,11 +182,9 @@ classdef Shaman < handle
 
             % Preallocate memory for u-values.
             u0 = zeros(1, length(edges), length(xidx));
-            %if nargout > 1
+            if nargout > 1
                 u = zeros(this.permutations.nperm, length(edges), length(xidx));
-            %else
-            %    u = 0;
-            %end
+            end
 
             % Cache some variables on the function stack to make parfor
             % happier.
@@ -222,8 +220,8 @@ classdef Shaman < handle
                 fprintf(repmat('\b', 1, line_length));
                 line_length = fprintf('Computing %s u-values on %d workers.\nFinished %d of %d traits.', score_type.to_string(), running, finished, ntraits);
             end
+            data_queue = parallel.pool.DataQueue; % For unclear reasons, Matlab requires data_queue to exist even if show_progress is false.
             if show_progress
-                data_queue = parallel.pool.DataQueue;
                 afterEach(data_queue, @update_progress);
             end
 
@@ -319,23 +317,57 @@ classdef Shaman < handle
             % Validate nodes/edges arguments and convert to edges.
             edges = this.to_edges(OptionalArgs.nodes, OptionalArgs.edges);
 
-            % Get u-values.
-            if nargout < 2
-                u0 = this.get_u_values("x", xidx, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "edges", edges, "show_progress", OptionalArgs.show_progress);
-            else
-                [u0, u] = this.get_u_values("x", xidx, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "edges", edges, "show_progress", OptionalArgs.show_progress);
+            % Preallocate memory.
+            npc0 = zeros(1, 1, length(xidx));
+            if nargout > 1
+                p_values = zeros(1,length(xidx));
+                npc = zeros(this.permutations.nperm, 1, length(xidx));
             end
 
-            % Convert u-values to npc scores.
-            if nargout < 2
-                npc0 = Shaman.compute_npc_scores(u0, "npc_method", OptionalArgs.npc_method, "show_progress", OptionalArgs.show_progress);
-            else
-                % Suppress progress indicator for npc0.
-                npc0 = Shaman.compute_npc_scores(u0, "npc_method", OptionalArgs.npc_method, "show_progress", false);
-                % Show progress for npc.
-                npc = Shaman.compute_npc_scores(u, "npc_method", OptionalArgs.npc_method, "show_progress", OptionalArgs.show_progress);
-                % Compute p-values.
-                npc0.compute_p_values(npc);
+            % Iterate over xidx and compute npc values.
+            % This is more memory-efficient than delegating to
+            % get_u_values() because we do not need to instantiate the
+            % entire u matrix for all elements in xidx in memory at once.
+            if OptionalArgs.show_progress
+                line_length1 = fprintf("Performing %s non-parametric combining on variable ", OptionalArgs.npc_method.to_string());
+                line_length2 = fprintf("%d of %d", 1, length(xidx));
+            end
+            for i_xidx = 1:length(xidx)
+                % Get u-values.
+                if nargout < 2
+                    u0 = this.get_u_values("x", xidx(i_xidx), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "edges", edges, "show_progress", false);
+                else
+                    [u0, u] = this.get_u_values("x", xidx(i_xidx), "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "edges", edges, "show_progress", false);
+                end
+                
+                % Convert u-values to npc scores.
+                if nargout < 2
+                    npc0(:,:,i_xidx) = Shaman.compute_npc_scores(u0, "npc_method", OptionalArgs.npc_method, "show_progress",false).scores;
+                else
+                    npc0_i = Shaman.compute_npc_scores(u0, "npc_method", OptionalArgs.npc_method, "show_progress", false);
+                    npc_i = Shaman.compute_npc_scores(u, "npc_method", OptionalArgs.npc_method, "show_progress", false);
+                    npc0_i.compute_p_values(npc_i);
+                    npc0(:,:,i_xidx) = npc0_i.scores;
+                    p_values(:,i_xidx) = npc0_i.p_values;
+                    npc(:,:,i_xidx) = npc_i.scores;
+                end
+            end
+            if nargout > 1
+                % Clean up memory.
+                clear npc0_i npc_i
+            end
+
+            % Package up results into NpcScores object(s).
+            npc0 = NpcScores("scores", npc0, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "npc_method", OptionalArgs.npc_method, "x_names", this.x_names(xidx), "randomization_method", this.permutations.randomization_method);
+            if nargout > 1
+                npc0.p_values = p_values;
+                npc = NpcScores("scores", npc, "score_type", OptionalArgs.score_type, "t_thresh", OptionalArgs.t_thresh, "npc_method", OptionalArgs.npc_method, "x_names", this.x_names(xidx), "randomization_method", this.permutations.randomization_method);
+            end
+
+            % Final progress message.
+            if OptionalArgs.show_progress
+                fprintf(repmat('\b', 1, line_length1 + line_length2));
+                fprintf("Performed %s non-parametric combining on %d variables.\n", OptionalArgs.npc_method.to_string(), length(xidx));
             end
         end
         function tbl = get_scores_as_table(this, OptionalArgs)
