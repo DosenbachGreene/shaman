@@ -377,6 +377,7 @@ classdef Shaman < handle
 
                 % Compute u-values for the not-permuted model.
                 u0_i = Shaman.compute_u_values(split_model_t(1, :, xidx(i_xidx)), null_model_t(:,:,xidx(i_xidx)), randomization_method, "full_model_t", full_model_t(1,:,xidx(i_xidx)), "score_type", score_type, "t_thresh", t_thresh);
+                u_i = 0; % suppress MATLAB:mir_warning_maybe_uninitialized_temporary for u_i in if statement below
                 if nout > 1
                     % Compute u-values for each permutation.
                     u_i = zeros(nperm, nedges); % assign to thread-local variable to make parfor happy
