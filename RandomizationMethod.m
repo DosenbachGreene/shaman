@@ -22,7 +22,7 @@ classdef RandomizationMethod
     methods (Static)
         function obj = getDefaultValue()
             % Default method for non-parametric combining is Stouffer's Z score.
-            obj = RandomizationMethod.Unconstrained;
+            obj = RandomizationMethod.MotionBlocks;
         end
         function i = randomize_none(motion)
             arguments
