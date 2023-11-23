@@ -1,7 +1,7 @@
 classdef MotionMeasure
     % Measure used to quantify motion.
     enumeration
-        DVAR
+        DVARS
         FD
     end
     methods (Static)
