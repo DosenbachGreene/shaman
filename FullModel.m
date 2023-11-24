@@ -38,9 +38,11 @@ classdef FullModel < Model
             this.motion = mean(data.motion);
 
             % Preallocate memory for the remaining participants.
-            size_hint = data_provider.size_hint_participants() - 1;
+            size_hint = data_provider.size_hint_participants();
             if size_hint == 0
                 size_hint = 1;
+            elseif size_hint > 1
+                size_hint = size_hint - 1;
             end
             con = [con; zeros(size_hint, length(con))];
             this.motion = [this.motion; zeros(size_hint, 1)];
@@ -55,7 +57,12 @@ classdef FullModel < Model
                 % Display progress.
                 if OptionalArgs.show_progress
                     fprintf(repmat('\b',1,line_length));
-                    line_length = fprintf('%d of %d', i, data_provider.size_hint_participants());
+                    size_hint = data_provider.size_hint_participants();
+                    if size_hint == 0
+                        line_length = fprintf('%d', i);
+                    else
+                        line_length = fprintf('%d of %d', i, size_hint);
+                    end
                 end
                 
                 % Load data.
