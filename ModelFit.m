@@ -95,6 +95,14 @@ classdef ModelFit
             % and design matrix x. If y has multiple columns then each column
             % of y is regressed independently. Returns beta- and t-values for
             % the first column in the design matrix x.
+            
+            % Strip design matrix rows with NaN out of x and y.
+            [nan_rows, ~] = find(isnan(x));
+            nan_rows = unique(nan_rows);
+            x(nan_rows,:) = [];
+            y(nan_rows,:) = [];
+            
+            % Do ordinary least squares regression.
             xpinv = pinv(x); % Moore-Penrose pseudoinverse
             b = xpinv * y; % beta coefficients
             mse = y - x*b; % residuals
