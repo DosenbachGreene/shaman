@@ -47,7 +47,7 @@ classdef Permutations < handle
             nedges = this.data_provider.size_voxels(); % actually # of voxels
             if nedges == 0
                 data_provider.reset();
-                [data, ~] = data_provider.nextData();
+                data = data_provider.nextData();
                 assert(~isempty(data));
                 nedges = size(data.fmri, 2); % actually # of voxels
                 data_provider.reset();
