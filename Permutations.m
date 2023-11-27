@@ -10,6 +10,7 @@ classdef Permutations < handle
     end
     properties
         nperm {mustBeInteger,mustBeNonnegative} = 0 % Number of permutations. Defaults to 0. Setting this property to a number X times larger than its initial value Y will keep the first Y permutations and run X-Y additional permutations. If X < Y it will generate an error.
+        max_par_workers uint32 = maxNumCompThreads() % maximum number of parallel workers to use. Default: maxNumCompThreads()
         show_progress logical = true % Whether to show a progress indicator. Default: true
     end
     methods
@@ -21,6 +22,7 @@ classdef Permutations < handle
                 OptionalArgs.intercept logical = true
                 OptionalArgs.motion_covariate logical = true
                 OptionalArgs.covariates string {mustBeVectorOrEmpty} = []
+                OptionalArgs.max_par_workers {mustBeNumeric,mustBeNonnegative,mustBeScalar} = maxNumCompThreads()
                 OptionalArgs.show_progress logical = true
                 OptionalArgs.randomization_method RandomizationMethod {mustRandomize} = RandomizationMethod.getDefaultValue();
             end
@@ -40,6 +42,7 @@ classdef Permutations < handle
             this.intercept = OptionalArgs.intercept;
             this.motion_covariate = OptionalArgs.motion_covariate;
             this.covariates = OptionalArgs.covariates;
+            this.max_par_workers = OptionalArgs.max_par_workers;
             this.show_progress = OptionalArgs.show_progress;
             this.randomization_method = OptionalArgs.randomization_method;
             
@@ -127,7 +130,7 @@ classdef Permutations < handle
             end
 
             % Perform the permutations.
-            parfor i=1:(nperm-this.nperm)
+            parfor (i=1:(nperm-this.nperm), this.max_par_workers)
                 % Update progress indicator.
                 if show_progress
                     send(data_queue,'start');

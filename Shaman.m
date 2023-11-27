@@ -36,6 +36,7 @@ classdef Shaman < handle
         n_edges {mustBeInteger,mustBePositive} % Number of edges (i.e. pairwise connections) in the model.
     end
     properties
+        max_par_workers uint32 = maxNumCompThreads() % maximum number of parallel workers to use. Default: maxNumCompThreads()
         show_progress logical = true % Whether to show a progress indicator for operations that could take a long time. Default: true
     end
     methods
@@ -48,6 +49,7 @@ classdef Shaman < handle
                 OptionalArgs.motion_covariate logical = true
                 OptionalArgs.covariates string {mustBeVectorOrEmpty} = []
                 OptionalArgs.randomization_method RandomizationMethod {mustRandomize} = RandomizationMethod.getDefaultValue();
+                OptionalArgs.max_par_workers {mustBeNumeric,mustBeNonnegative,mustBeScalar} = maxNumCompThreads()
                 OptionalArgs.show_progress logical = true
             end
             % Construct a new Shaman object.
@@ -79,6 +81,9 @@ classdef Shaman < handle
             % randomization_method:
             %     Randomization method to use for permutation testing.
             %     See RandomizationMethod.
+            % max_par_workers:
+            %     Use at most this many parallel workers.
+            %     default: maxNumCompThreads()
             % show_progress: Whether to show a progress indicator. Default: true
 
             % Store arguments in self.
@@ -87,6 +92,7 @@ classdef Shaman < handle
             this.intercept = OptionalArgs.intercept;
             this.motion_covariate = OptionalArgs.motion_covariate;
             this.covariates = OptionalArgs.covariates;
+            this.max_par_workers = OptionalArgs.max_par_workers;
             this.show_progress = OptionalArgs.show_progress;
 
             % Fit the full model.
@@ -111,7 +117,7 @@ classdef Shaman < handle
             clear model;
 
             % Initialize permutation test.
-            this.permutations = Permutations(this.data_provider, this.x_names, "covariates", this.covariates, "intercept", this.intercept, "motion_covariate", this.motion_covariate, "randomization_method", OptionalArgs.randomization_method, "show_progress", this.show_progress);
+            this.permutations = Permutations(this.data_provider, this.x_names, "covariates", this.covariates, "intercept", this.intercept, "motion_covariate", this.motion_covariate, "randomization_method", OptionalArgs.randomization_method, "max_par_workers", this.max_par_workers, "show_progress", this.show_progress);
 
             % Perform permutations.
             if OptionalArgs.nperm > 0
@@ -121,6 +127,16 @@ classdef Shaman < handle
             % Store number of nodes and edges.
             this.n_edges = size(this.full_model_fit.t,2);
             this.n_nodes = (1 + sqrt(1 + 8*this.n_edges)) / 2;
+        end
+        function set.max_par_workers(this, val)
+            arguments
+                this Shaman
+                val {mustBeNumeric,mustBeNonnegative,mustBeScalar}
+            end
+            this.max_par_workers = val;
+            if ~isempty(this.permutations)
+            	this.permutations.max_par_workers = val;
+            end
         end
         function [u0, u] = get_u_values(this, OptionalArgs)
             arguments
@@ -226,7 +242,7 @@ classdef Shaman < handle
             end
 
             % Iterate over traits and compute u-values.
-            parfor i=1:ntraits
+            parfor (i=1:ntraits, this.max_par_workers)
                 % Update progress indicator.
                 if show_progress
                     send(data_queue,'start');
@@ -369,7 +385,7 @@ classdef Shaman < handle
             % This is more memory-efficient than delegating to
             % get_u_values() because we do not need to instantiate the
             % entire u matrix for all elements in xidx in memory at once.
-            parfor i_xidx = 1:ntraits
+            parfor (i_xidx = 1:ntraits, this.max_par_workers)
                 % Update progress indicator.
                 if show_progress
                     send(data_queue,'start');
