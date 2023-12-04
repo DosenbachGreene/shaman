@@ -11,7 +11,7 @@ classdef SplitModel < Model
     % Rather than splitting fMRI timeseires data into high- and low-motion
     % halves, the split can be randomized with respect to motion for the
     % purpose of permutation testing.
-    properties (SetAccess=protected, GetAccess=public)
+    properties
         con % See Model.con.
         motion % See Model.motion.
         tbl % See model.tbl.

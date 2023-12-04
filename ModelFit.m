@@ -12,11 +12,12 @@ classdef ModelFit
     properties (SetAccess=protected, GetAccess=public)
         x_names string {mustBeVector,mustBeNonempty} = [0] % names of predictors, in the same order as the 3rd dimension of b and t
         b {mustBeNumeric} % 1 (row) x edges (columns) x predictors matrix of beta values
-        t {mustBeNumeric} % 1 (row) x edges (columns) x predictors matrix t-values
+        t {mustBeNumeric} % bootstrap x edges (columns) x predictors x subsamples matrix t-values
         covariates string {mustBeVectorOrEmpty} = [] % names of covariates
         intercept logical = true % whether the model includes an intercept column
         motion_covariate logical = true % whether the model includes motion as a covariate
-        n_participants uint32 % number of participants (rows) in the fitted model
+        n_participants uint32 % number of participants (rows) in the fitted model (without subsampling)
+        subsamples uint32 {mustBeUnique,mustBeInteger,mustBeVector,mustBeNonnegative,mustBeNonempty} = [0] % vector of subsample sizes; a size of 0 means no subsampling
     end
     methods
         function this = ModelFit(model, x_names, OptionalArgs)
@@ -42,6 +43,8 @@ classdef ModelFit
                 OptionalArgs.intercept logical = true
                 OptionalArgs.motion_covariate logical = true
                 OptionalArgs.covariates string {mustBeVectorOrEmpty} = []
+                OptionalArgs.nboot {mustBeNonnegative,mustBeInteger,mustBeScalar} = 1
+                OptionalArgs.subsamples {mustBeUnique,mustBeInteger,mustBeVector,mustBeNonnegative,mustBeNonempty} = [0]
                 OptionalArgs.show_progress logical = true
             end
 
@@ -51,9 +54,12 @@ classdef ModelFit
             this.intercept = OptionalArgs.intercept;
             this.motion_covariate = OptionalArgs.motion_covariate;
             this.n_participants = size(model.con,1);
+            this.subsamples = unique(OptionalArgs.subsamples); % sort
+            assert(all(this.subsamples < this.n_participants));
+            nboot = OptionalArgs.nboot; % can be inferred from ModelFit.t
             
             % Closure to make the design matrices.
-            function X = make_design_matrix(xi)
+            function X = make_design_matrix(model, xi)
                 X = model.tbl.(xi); % predictor of interest in 1st column
                 X = [X, table2array(model.tbl(:, OptionalArgs.covariates))]; % covariates
                 if OptionalArgs.motion_covariate
@@ -66,28 +72,73 @@ classdef ModelFit
 
             % Allocate memory.
             this.b = zeros(1, size(model.con,2), length(x_names));
-            this.t = zeros(1, size(model.con,2), length(x_names));
+            this.t = zeros(nboot, size(model.con,2), length(x_names), length(this.subsamples));
 
-            % Fit the model for each predictor in x.
+            % Fit model for each subsample.
+            % Progress indicator.
             if OptionalArgs.show_progress
-                fprintf('Fitting variable ');
-                line_length = fprintf('1 of %d', length(this.x_names));
+                line_length_1 = fprintf('Fitting subsample ');
+                line_length_2 = 0;
+                line_length_3 = 0;
+                line_length_4 = 0;
+                line_length_5 = 0;
+                line_length_6 = 0;
             end
-            for i=1:length(this.x_names)
+            for i_subsample = 1:length(this.subsamples)
+                subsample_size = this.subsamples(i_subsample);
+
                 % Progress indicator.
                 if OptionalArgs.show_progress
-                    fprintf(repmat('\b', 1, line_length));
-                    line_length = fprintf('%d of %d', i, length(this.x_names));
+                    fprintf(repmat('\b', 1, line_length_2 + line_length_3 + line_length_4 + line_length_5 + line_length_6));
+                    line_length_2 = fprintf('%d of %d', i_subsample, length(this.subsamples));
+                    line_length_3 = fprintf(", bootstrap ");
+                    line_length_4 = 0;
+                    line_length_5 = 0;
+                    line_length_6 = 0;
                 end
+                for i_boot = 1:nboot
+                    if OptionalArgs.show_progress
+                        fprintf(repmat('\b', 1, line_length_4 + line_length_5 + line_length_6));
+                        line_length_4 = fprintf('%d of %d', i_boot, nboot);
+                        line_length_5 = fprintf(', variable ');
+                        line_length_6 = 0;
+                    end
 
-                % Perform regression.
-                [this.b(1,:,i), this.t(1,:,i)] = ModelFit.regress(make_design_matrix(this.x_names(i)), model.con);
+                    if subsample_size ~= 0
+                        % Randomly subsample the model with replacement.
+                        submodel = model.resample(subsample_size);
+                    end
+
+                    % Fit the model for each predictor in x.
+                    for i_x=1:length(this.x_names)
+                        % Progress indicator.
+                        if OptionalArgs.show_progress
+                            fprintf(repmat('\b', 1, line_length_6));
+                            line_length_6 = fprintf('%d of %d', i_x, length(this.x_names));
+                        end
+        
+                        % Perform regression.
+                        if subsample_size == 0
+                            [this.b(1,:,i_x), this.t(1,:,i_x,i_subsample)] = ModelFit.regress(make_design_matrix(model, this.x_names(i_x)), model.con);
+                        else
+                            [~, this.t(i_boot,:,i_x,i_subsample)] = ModelFit.regress(make_design_matrix(submodel, this.x_names(i_x)), submodel.con);
+                        end
+                    end
+
+                    if subsample_size == 0
+                        % Don't bootstrap for special size of zero = full
+                        % sample.
+                        this.t(:,:,:,i_subsample) = repmat(this.t(1,:,:,i_subsample), size(this.t,1), 1);
+                        break;
+                    end
+                end
             end
             if OptionalArgs.show_progress
-                fprintf(repmat('\b', 1, line_length + 17))
-                fprintf('Fitted %d variables.\n', length(this.x_names));
+                fprintf(repmat('\b', 1, line_length_1 + line_length_2 + line_length_3 + line_length_4 + line_length_5 + line_length_6));
+                fprintf('Fitted %d subsamples, %d bootstraps, and %d variables.\n', length(this.subsamples), nboot, length(this.x_names));
             end
         end
+
     end
     methods(Static, Access=private)
         function [b, t] = regress(x, y)

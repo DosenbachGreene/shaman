@@ -9,6 +9,8 @@ classdef SplitModelFit < ModelFit
                 OptionalArgs.intercept logical = true
                 OptionalArgs.motion_covariate logical = true
                 OptionalArgs.covariates string {mustBeVectorOrEmpty} = []
+                OptionalArgs.nboot {mustBeNonnegative,mustBeInteger,mustBeScalar} = 1
+                OptionalArgs.subsamples {mustBeUnique,mustBeInteger,mustBeVector,mustBeNonnegative,mustBeNonempty} = [0]
                 OptionalArgs.show_progress logical = true
             end
             

@@ -20,7 +20,7 @@ classdef NpcMethod
         end
         function x = npc(u, npc_method)
             arguments
-                u {mustBeNumeric,mustBeVector,mustBeNonempty}
+                u {mustBeNumeric,mustBeNonempty}
                 npc_method NpcMethod = NpcMethod.getDefaultValue()
             end
             % Perform non-parametric combining on u-values with method.
@@ -36,7 +36,7 @@ classdef NpcMethod
         end
         function z = stouffer(u, epsilon)
             arguments
-                u {mustBeNumeric,mustBeNonempty,mustBeVector}
+                u {mustBeNumeric,mustBeNonempty}
                 epsilon {mustBeNumeric,mustBeScalar,mustBePositive} = eps;
             end
             % Perform non-parametric combining to obtain a Stouffer's Z score.
@@ -55,7 +55,7 @@ classdef NpcMethod
             u(u > 1-epsilon) = 1 - epsilon;
             
             % Compute Stouffer's Z score.
-            z = sum(norminv(1 - u)) / sqrt(length(u));
+            z = sum(norminv(1 - u)) / sqrt(size(u,1));
         end
     end
 end

@@ -1,6 +1,6 @@
 classdef FullModel < Model
     % A model of full (as opposed to split-half) connectivity.
-    properties (SetAccess=protected, GetAccess=public)
+    properties
         con % See Model.con.
         motion % See Model.motion.
         tbl % See model.tbl.
