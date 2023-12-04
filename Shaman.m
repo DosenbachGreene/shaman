@@ -34,6 +34,8 @@ classdef Shaman < handle
         covariates string {mustBeVectorOrEmpty} % Names of additional non-imaging variables, besides motion and an intercept term, to include as covariates. The default is not to include any extra covariates. Example: ["cov1", "cov2"]
         n_nodes {mustBeInteger,mustBePositive} % Number of nodes (i.e. voxels, vertices, regions, parcels) in the model.
         n_edges {mustBeInteger,mustBePositive} % Number of edges (i.e. pairwise connections) in the model.
+        tbl table % Table of non-imaging data.
+        motion {mustBeVector,mustBeNumeric} = [0] % Motion ccovariate for full model.
     end
     properties
         max_par_workers uint32 = maxNumCompThreads() % maximum number of parallel workers to use. Default: maxNumCompThreads()
@@ -95,11 +97,15 @@ classdef Shaman < handle
             this.max_par_workers = OptionalArgs.max_par_workers;
             this.show_progress = OptionalArgs.show_progress;
 
-            % Fit the full model.
+            % Load data for the full model.
             if this.show_progress
                 fprintf('Loading data for full model: ');
             end
             model = FullModel(this.data_provider, "show_progress", this.show_progress);
+            % Save non-imaging data from the model.
+            this.tbl = model.tbl;
+            this.motion = model.motion;
+            % Fit the full model.
             if this.show_progress
                 fprintf('Fitting variables to full model: ');
             end
