@@ -110,7 +110,7 @@ classdef SplitModel < Model
 
             % Trim data structures if size_hint was larger than the actual
             % number of participants.
-            if i < size_hint
+            if i < size(con_low)
                 con_low = con_low(1:i, :);
                 con_high = con_high(1:i, :);
                 motion_low = motion_low(1:i);

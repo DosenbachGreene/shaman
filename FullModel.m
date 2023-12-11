@@ -91,7 +91,7 @@ classdef FullModel < Model
 
             % Trim data structures if size_hint was larger than the actual
             % number of participants.
-            if i < size_hint
+            if i < size(con,1)
                 con = con(1:i, :);
                 this.motion = this.motion(1:i);
                 this.tbl = this.tbl(1:i, :);
