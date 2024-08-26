@@ -55,7 +55,11 @@ classdef NpcMethod
             u(u > 1-epsilon) = 1 - epsilon;
             
             % Compute Stouffer's Z score.
-            z = sum(norminv(1 - u)) / sqrt(size(u,1));
+            if isvector(u)
+                z = sum(norminv(1 - u), "omitnan") / sqrt(sum(~isnan(u)));
+            else
+                z = sum(norminv(1 - u)) / sqrt(size(u,1));
+            end
         end
     end
 end
